@@ -1,0 +1,66 @@
+experiment:
+    id: 'unet_training_final'
+
+##Data
+data:
+    name: 'shapenet'
+    path_to_dataset: '../dataset/shapenet_dataset/data'
+    img_prop:
+        width: 400
+        height: 400
+        keep_aspect_ratio: true
+    depth: 3
+    batch_size: 8
+    train_shuffle: true
+    num_workers: 0
+
+##Training
+train:
+    n_gpus: 1
+    num_workers: 4
+    max_epoch: 500
+    lr: 0.0001
+    weight_decay: 0.001
+    num_mc_aleatoric: 50
+    patience: 500
+    visualization_interval: 50
+
+    transformations:
+        random_rotation:
+          min_angle: -180
+          max_angle:  180
+          step_size:   2
+        color_jitter:
+         brightness: 0.1 # 0.0-1.0
+         contrast: 0.1 # 0.0-1.0
+         saturation: 0.1 # 0.0-1.0
+         hue: 0.1 # -0.5-0.5
+        # random_crop:
+        #   height:
+        #   width: 200
+        # resize:
+        #   height:
+        #   width: 344
+        #   keep_aspect_ratio: true
+
+val:
+    transformations:
+        # resize:
+        #   height:
+        #   width: 344
+        #   keep_aspect_ratio: true
+
+test:
+    transformations:
+        # resize:
+        #   height:
+        #   width: 344
+        #   keep_aspect_ratio: true
+
+##Network
+model:
+    type: 'aleatoric_network' # network, aleatoric_network
+    name: "unet" # erfnet, unet
+    num_classes: 7
+    loss: 'nll' # xentropy, nll
+
