@@ -1,8 +1,7 @@
-""" Define a set of transformations which can be applied simultaneously to the raw image, input image and its corresponding anntations.
+""" Define a set of transformations which can be applied simultaneously to the input image and its corresponding labels.
 
-This is relevant for the task of semantic segmentation since the input image and its annotation need to be treated in the same way.
+This is relevant for the task of semantic segmentation since the input image and its label need to be treated in the same way.
 """
-import math
 import random
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
@@ -13,26 +12,46 @@ import torchvision
 import torchvision.transforms.functional as TF
 
 
-class Transformation(ABC):
+class JointTransformation(ABC):
     """General transformation which can be applied simultaneously to the raw image, input image and its corresponding anntations."""
 
     @abstractmethod
     def __call__(
-        self, raw_image: PILImage, image: torch.Tensor, anno: torch.Tensor
-    ) -> Tuple[PILImage, torch.Tensor, torch.Tensor]:
-        """Apply a transformation to a given image and its corresponding annotation.
+        self, image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[PILImage]]:
+        """Apply a transformation to a given image and its corresponding label.
 
         Args:
           image (torch.Tensor): input image to be transformed.
-          anno (torch.Tensor): annotation to be transformed.
+          label (torch.Tensor): label to be transformed.
+          raw_image (Optional[PILImage], optional): optional because 
+          it is useful to transform for visualization purposes.
 
         Returns:
-          Tuple[torch.Tensor, torch.Tensor]: transformed image and its corresponding annotation
+          Tuple[torch.Tensor, torch.Tensor]: transformed image and its corresponding label
         """
         raise NotImplementedError
 
+def assert_dimensions_are_equal(image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None) -> bool:
+    """Check if the dimensions of the input image and its corresponding label are identical.
 
-class MyCenterCropTransform(Transformation):
+    Args:
+        image (torch.Tensor): input image
+        label (torch.Tensor): label
+        raw_image (Optional[PILImage], optional): optional because 
+          it is useful to transform for visualization purposes.
+
+    Returns:
+        bool: True if dimensions are identical, False otherwise.
+    """
+    if raw_image is not None:
+        assert image.shape[1] == label.shape[1] == raw_image.height, "Dimensions of all input should be identical."
+        assert image.shape[2] == label.shape[2] == raw_image.width, "Dimensions of all input should be identical."
+    else:
+        assert image.shape[1] == label.shape[1], "Dimensions of all input should be identical."
+        assert image.shape[2] == label.shape[2], "Dimensions of all input should be identical."
+
+class JointCenterCropTransform(JointTransformation):
     """Extract a patch from the image center."""
 
     def __init__(self, crop_height: Optional[int] = None, crop_width: Optional[int] = None):
@@ -46,43 +65,47 @@ class MyCenterCropTransform(Transformation):
         self.crop_width = crop_width
 
     def __call__(
-        self, raw_image: PILImage, image: torch.Tensor, anno: torch.Tensor
-    ) -> Tuple[PILImage, torch.Tensor, torch.Tensor]:
+        self, image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[PILImage]]:
         # dimension of each input should be identical
-        assert raw_image.height == image.shape[1] == anno.shape[1], "Dimensions of all input should be identical."
-        assert raw_image.width == image.shape[2] == anno.shape[2], "Dimensions of all input should be identical."
-
+        assert_dimensions_are_equal(image, label, raw_image)
+        
         if (self.crop_height is None) or (self.crop_width is None):
-            return raw_image, image, anno
+            if raw_image is not None:
+                return image, label, raw_image
+            else:
+                return image, label
 
         img_chans, img_height, img_width = image.shape[:3]
-        anno_chans = anno.shape[0]
+        label_chans = label.shape[0]
 
         if self.crop_width > img_width:
             raise ValueError("Width of cropping region must not be greather than img width")
         if self.crop_height > img_height:
             raise ValueError("Height of cropping region must not be greather than img height.")
 
-        raw_image_cropped: PILImage = TF.center_crop(raw_image, [self.crop_height, self.crop_width])  # type: ignore
         image_cropped = TF.center_crop(image, [self.crop_height, self.crop_width])
-        anno_cropped = TF.center_crop(anno, [self.crop_height, self.crop_width])
-
-        assert raw_image_cropped.height == self.crop_height, "Cropped raw image has not the desired size."
-        assert raw_image_cropped.width == self.crop_width, "Cropped raw image has not the desired width."
-
+        label_cropped = TF.center_crop(label, [self.crop_height, self.crop_width])
         assert image_cropped.shape[0] == img_chans, "Cropped image has an unexpected number of channels."
         assert image_cropped.shape[1] == self.crop_height, "Cropped image has not the desired size."
         assert image_cropped.shape[2] == self.crop_width, "Cropped image has not the desired width."
 
-        assert anno_cropped.shape[0] == anno_chans, "Cropped anno has an unexpected number of channels."
-        assert anno_cropped.shape[1] == self.crop_height, "Cropped anno has not the desired size."
-        assert anno_cropped.shape[2] == self.crop_width, "Cropped anno has not the desired width."
+        assert label_cropped.shape[0] == label_chans, "Cropped label has an unexpected number of channels."
+        assert label_cropped.shape[1] == self.crop_height, "Cropped label has not the desired size."
+        assert label_cropped.shape[2] == self.crop_width, "Cropped label has not the desired width."
 
-        return raw_image_cropped, image_cropped, anno_cropped
+        if raw_image is not None:
+            raw_image_cropped = TF.center_crop(raw_image, [self.crop_height, self.crop_width])
+            assert raw_image_cropped.height == self.crop_height, "Cropped raw image has not the desired size."
+            assert raw_image_cropped.width == self.crop_width, "Cropped raw image has not the desired width."
+            return image_cropped, label_cropped, raw_image_cropped
+
+        else:
+            return image_cropped, label_cropped
 
 
-class MyRandomCropTransform(Transformation):
-    """Extract a random patch from a given image and its corresponding annnotation."""
+class JointRandomCropTransform(JointTransformation):
+    """Extract a random patch from a given image and its corresponding label."""
 
     def __init__(self, crop_height: Optional[int] = None, crop_width: Optional[int] = None):
         """Set height and width of cropping region.
@@ -95,26 +118,27 @@ class MyRandomCropTransform(Transformation):
         self.crop_width = crop_width
 
     def __call__(
-        self, raw_image: PILImage, image: torch.Tensor, anno: torch.Tensor
-    ) -> Tuple[PILImage, torch.Tensor, torch.Tensor]:
-        """Apply cropping to an image and its corresponding annotation.
+        self, image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[PILImage]]:
+        """Apply cropping to an image and its corresponding label.
 
         Args:
             image (torch.Tensor): image to be cropped of shape [C x H x W]
-            anno (torch.Tensor): annotation to be cropped of shape [1 x H x W]
+            label (torch.Tensor): label to be cropped of shape [1 x H x W]
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: cropped image, cropped anno
+            Tuple[torch.Tensor, torch.Tensor]: cropped image, cropped label
         """
         # dimension of each input should be identical
-        assert raw_image.height == image.shape[1] == anno.shape[1], "Dimensions of all input should be identical."
-        assert raw_image.width == image.shape[2] == anno.shape[2], "Dimensions of all input should be identical."
-
+        assert_dimensions_are_equal(image, label, raw_image)
         if (self.crop_height is None) or (self.crop_width is None):
-            return raw_image, image, anno
+            if raw_image is not None:
+                return image, label, raw_image
+            else:
+                return image, label
 
         img_chans, img_height, img_width = image.shape[:3]
-        anno_chans = anno.shape[0]
+        label_chans = label.shape[0]
 
         if self.crop_width > img_width:
             raise ValueError("Width of cropping region must not be greather than img width")
@@ -130,26 +154,28 @@ class MyRandomCropTransform(Transformation):
         assert (x_start + self.crop_width) <= img_width, "Cropping region (width) exceeds image dims."
         assert (y_start + self.crop_height) <= img_height, "Cropping region (height) exceeds image dims."
 
-        raw_image_cropped: PILImage = TF.crop(raw_image, y_start, x_start, self.crop_height, self.crop_width)  # type: ignore
         image_cropped = TF.crop(image, y_start, x_start, self.crop_height, self.crop_width)
-        anno_cropped = TF.crop(anno, y_start, x_start, self.crop_height, self.crop_width)
-
-        assert raw_image_cropped.height == self.crop_height, "Cropped raw image has not the desired size."
-        assert raw_image_cropped.width == self.crop_width, "Cropped raw image has not the desired width."
+        label_cropped = TF.crop(label, y_start, x_start, self.crop_height, self.crop_width)
 
         assert image_cropped.shape[0] == img_chans, "Cropped image has an unexpected number of channels."
         assert image_cropped.shape[1] == self.crop_height, "Cropped image has not the desired size."
         assert image_cropped.shape[2] == self.crop_width, "Cropped image has not the desired width."
 
-        assert anno_cropped.shape[0] == anno_chans, "Cropped anno has an unexpected number of channels."
-        assert anno_cropped.shape[1] == self.crop_height, "Cropped anno has not the desired size."
-        assert anno_cropped.shape[2] == self.crop_width, "Cropped anno has not the desired width."
+        assert label_cropped.shape[0] == label_chans, "Cropped label has an unexpected number of channels."
+        assert label_cropped.shape[1] == self.crop_height, "Cropped label has not the desired size."
+        assert label_cropped.shape[2] == self.crop_width, "Cropped label has not the desired width."
 
-        return raw_image_cropped, image_cropped, anno_cropped
+        if raw_image is not None:
+            raw_image_cropped = TF.crop(raw_image, y_start, x_start, self.crop_height, self.crop_width)
+            assert raw_image_cropped.height == self.crop_height, "Cropped raw image has not the desired size."
+            assert raw_image_cropped.width == self.crop_width, "Cropped raw image has not the desired width."
+            return image_cropped, label_cropped, raw_image_cropped
+        else:
+            return image_cropped, label_cropped
 
 
-class MyResizeTransform(Transformation):
-    """Resize a given image and its corresponding annotation."""
+class JointResizeTransform(JointTransformation):
+    """Resize a given image and its corresponding label."""
 
     def __init__(self, height: Optional[int] = None, width: Optional[int] = None, keep_aspect_ratio: bool = False):
         """Set params for resize operation.
@@ -172,23 +198,26 @@ class MyResizeTransform(Transformation):
         self.keep_aspect_ratio = keep_aspect_ratio
 
     def __call__(
-        self, raw_image: PILImage, image: torch.Tensor, anno: torch.Tensor
-    ) -> Tuple[PILImage, torch.Tensor, torch.Tensor]:
-        """Apply resizing to an image and its corresponding annotation.
+        self, image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[PILImage]]:
+        """Apply resizing to an image and its corresponding label.
 
         Args:
             image (torch.Tensor): image to be resized of shape [C x H x W]
-            anno (torch.Tensor): anno to be cropped of shape [C x H x W]
+            label (torch.Tensor): label to be cropped of shape [C x H x W]
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: [description]
         """
-        # dimension of each input should be identical
-        assert raw_image.height == image.shape[1] == anno.shape[1], "Dimensions of all input should be identical."
-        assert raw_image.width == image.shape[2] == anno.shape[2], "Dimensions of all input should be identical."
+        # dimension of each input should be identical.
+        # assert image.shape[1] == label.shape[1], "Dimensions of all input should be identical."
+        # assert image.shape[2] == label.shape[2], "Dimensions of all input should be identical."
 
         if (self.resized_width is None) and (self.resized_height is None):
-            return raw_image, image, anno
+            if raw_image is not None:
+                return image, label, raw_image
+            else:
+                return image, label
 
         # original image dimension
         h, w = image.shape[1], image.shape[2]
@@ -203,16 +232,23 @@ class MyResizeTransform(Transformation):
             else:
                 resized_width = w
 
-            raw_image_resized: PILImage = TF.resize(raw_image, [self.resized_height, resized_width], interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
             image_resized = TF.resize(
-                image, [self.resized_height, resized_width], interpolation=TF.InterpolationMode.BILINEAR
+                image, [self.resized_height, resized_width], interpolation=TF.InterpolationMode.BILINEAR, antialias=True
             )
-            anno_resized = TF.resize(
-                anno, [self.resized_height, resized_width], interpolation=TF.InterpolationMode.NEAREST
+            label_resized = TF.resize(
+                label, [self.resized_height, resized_width], interpolation=TF.InterpolationMode.NEAREST, antialias=True
             )
-            del resized_width
 
-            return raw_image_resized, image_resized, anno_resized
+            if raw_image is not None:
+                raw_image_resized = TF.resize(
+                    raw_image, [self.resized_height, resized_width], interpolation=TF.InterpolationMode.BILINEAR, antialias=True
+                )
+                del resized_width
+                return image_resized, label_resized, raw_image_resized
+            else:
+                del resized_width # TODO: Why?
+                return image_resized, label_resized
+            
 
         # 2nd case - user provides width but not height
         if (self.resized_width is not None) and (self.resized_height is None):
@@ -223,16 +259,21 @@ class MyResizeTransform(Transformation):
             else:
                 resized_height = h
 
-            raw_image_resized: PILImage = TF.resize(raw_image, [resized_height, self.resized_width], interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
             image_resized = TF.resize(
-                image, [resized_height, self.resized_width], interpolation=TF.InterpolationMode.BILINEAR
+                image, [resized_height, self.resized_width], interpolation=TF.InterpolationMode.BILINEAR, antialias=True
             )
-            anno_resized = TF.resize(
-                anno, [resized_height, self.resized_width], interpolation=TF.InterpolationMode.NEAREST
+            label_resized = TF.resize(
+                label, [resized_height, self.resized_width], interpolation=TF.InterpolationMode.NEAREST, antialias=True
             )
-            del resized_height
-
-            return raw_image_resized, image_resized, anno_resized
+            if raw_image is not None:
+                raw_image_resized = TF.resize(
+                    raw_image, [resized_height, self.resized_width], interpolation=TF.InterpolationMode.BILINEAR, antialias=True
+                )
+                del resized_height
+                return image_resized, label_resized, raw_image_resized
+            else
+                del resized_height
+                return image_resized, label_resized
         # 3rd case - user provides width and height
         if (self.resized_width is not None) and (self.resized_height is not None):
             assert (self.resized_width > 0) or (self.resized_height > 0)
@@ -242,15 +283,18 @@ class MyResizeTransform(Transformation):
                 "In case width and height are changed the aspect ratio might change. Set 'keep_aspect_ratio' to False to resolve this issue."
             )
 
-        raw_image_resized: PILImage = TF.resize(raw_image, [self.resized_height, self.resized_width], interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
-        image_resized = TF.resize(image, [self.resized_height, self.resized_width], interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
-        anno_resized = TF.resize(anno, [self.resized_height, self.resized_width], interpolation=TF.InterpolationMode.NEAREST)  # type: ignore
+        image_resized = TF.resize(image, [self.resized_height, self.resized_width], interpolation=TF.InterpolationMode.BILINEAR, antialias=True)  # type: ignore
+        label_resized = TF.resize(label, [self.resized_height, self.resized_width], interpolation=TF.InterpolationMode.NEAREST, antialias=True)  # type: ignore
 
-        return raw_image_resized, image_resized, anno_resized
+        if raw_image is not None:
+            raw_image_resized = TF.resize(raw_image, [self.resized_height, self.resized_width], interpolation=TF.InterpolationMode.BILINEAR, antialias=True)
+            return image_resized, label_resized, raw_image_resized
+        else:
+            return image_resized, label_resized
 
 
-class MyRandomRotationTransform(Transformation):
-    """Rotate a given image and its corresponding annotation."""
+class JointRandomRotationTransform(JointTransformation):
+    """Rotate a given image and its corresponding label."""
 
     def __init__(
         self, min_angle: Optional[float] = None, max_angle: Optional[float] = None, step_size: Optional[float] = None
@@ -260,10 +304,10 @@ class MyRandomRotationTransform(Transformation):
         self.step_size = step_size  # degree
 
     def __call__(
-        self, raw_image: PILImage, image: torch.Tensor, anno: torch.Tensor
-    ) -> Tuple[PILImage, torch.Tensor, torch.Tensor]:
+        self, image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[PILImage]]:
         if (self.min_angle is None) or (self.max_angle is None) or (self.step_size is None):
-            return raw_image, image, anno
+            return image, label
 
         assert self.min_angle is not None
         assert self.max_angle is not None
@@ -275,16 +319,19 @@ class MyRandomRotationTransform(Transformation):
         angles = torch.arange(self.min_angle, self.max_angle, step=self.step_size)
         random_angle = float(random.choice(list(angles)))  # degree
 
-        raw_image_rotated: PILImage = TF.rotate(raw_image, random_angle, interpolation=TF.InterpolationMode.BILINEAR)  # type: ignore
         image_rotated = TF.rotate(image, random_angle, interpolation=TF.InterpolationMode.BILINEAR)
-        anno_rotated = TF.rotate(anno, random_angle, interpolation=TF.InterpolationMode.NEAREST)
+        label_rotated = TF.rotate(label, random_angle, interpolation=TF.InterpolationMode.NEAREST)
 
-        return raw_image_rotated, image_rotated, anno_rotated
+        if raw_image is not None:
+            raw_image_rotated = TF.rotate(raw_image, random_angle, interpolation=TF.InterpolationMode.BILINEAR)
+            return image_rotated, label_rotated, raw_image_rotated
+        else:
+            return image_rotated, label_rotated
 
 
-class MyRandomColorJitterTransform(Transformation):
-    """Apply colour jitter to a given image."""
-
+class JointRandomColorJitterTransform(JointTransformation):
+    """Apply colour jitter to a given image.
+        Ignores the label."""
     def __init__(
         self,
         brightness: Optional[float] = 0.0,
@@ -301,19 +348,21 @@ class MyRandomColorJitterTransform(Transformation):
         self.hue = hue
 
     def __call__(
-        self, raw_image: PILImage, image: torch.Tensor, anno: torch.Tensor
-    ) -> Tuple[PILImage, torch.Tensor, torch.Tensor]:
+        self, image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
 
         jitter = torchvision.transforms.ColorJitter(
             brightness=self.brightness, contrast=self.contrast, saturation=self.saturation, hue=self.hue
         )
-        raw_image_jitted = jitter(raw_image)
         image_jitted = jitter(image)
+        if raw_image is not None:
+            raw_image_jitted = jitter(raw_image)
+            return image_jitted, label, raw_image_jitted
+        else:
+            return image_jitted, label
 
-        return raw_image_jitted, image_jitted, anno
-
-
-def get_transformations(cfg, stage: str) -> List[Transformation]:
+# TODO: Move this somewhere else? Config file or here?
+def get_transformations(cfg, stage: str) -> List[JointTransformation]:
     assert stage in ["train", "val", "test"]
     transformations = []
 
@@ -326,21 +375,21 @@ def get_transformations(cfg, stage: str) -> List[Transformation]:
                 min_angle = cfg[stage]["transformations"][tf_name]["min_angle"]
                 max_angle = cfg[stage]["transformations"][tf_name]["max_angle"]
                 step_size = cfg[stage]["transformations"][tf_name]["step_size"]
-                transformer = MyRandomRotationTransform(min_angle, max_angle, step_size)
+                transformer = JointRandomRotationTransform(min_angle, max_angle, step_size)
 
                 transformations.append(transformer)
 
             if tf_name == "center_crop":
                 crop_height = cfg[stage]["transformations"][tf_name]["height"]
                 crop_width = cfg[stage]["transformations"][tf_name]["width"]
-                transformer = MyCenterCropTransform(crop_height, crop_width)
+                transformer = JointCenterCropTransform(crop_height, crop_width)
 
                 transformations.append(transformer)
 
             if tf_name == "random_crop":
                 crop_height = cfg[stage]["transformations"][tf_name]["height"]
                 crop_width = cfg[stage]["transformations"][tf_name]["width"]
-                transformer = MyRandomCropTransform(crop_height, crop_width)
+                transformer = JointRandomCropTransform(crop_height, crop_width)
 
                 transformations.append(transformer)
 
@@ -348,7 +397,7 @@ def get_transformations(cfg, stage: str) -> List[Transformation]:
                 resize_height = cfg[stage]["transformations"][tf_name]["height"]
                 resize_width = cfg[stage]["transformations"][tf_name]["width"]
                 keep_ap = cfg[stage]["transformations"][tf_name]["keep_aspect_ratio"]
-                transformer = MyResizeTransform(resize_height, resize_width, keep_ap)
+                transformer = JointResizeTransform(resize_height, resize_width, keep_ap)
 
                 transformations.append(transformer)
 
@@ -357,7 +406,7 @@ def get_transformations(cfg, stage: str) -> List[Transformation]:
                 contrast = cfg[stage]["transformations"][tf_name]["contrast"]
                 saturation = cfg[stage]["transformations"][tf_name]["saturation"]
                 hue = cfg[stage]["transformations"][tf_name]["hue"]
-                transformer = MyRandomColorJitterTransform(brightness, contrast, saturation, hue)
+                transformer = JointRandomColorJitterTransform(brightness, contrast, saturation, hue)
 
                 transformations.append(transformer)
 
