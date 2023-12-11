@@ -5,6 +5,7 @@ from pytorch_lightning.core.lightning import LightningModule
 from torch import nn
 from torchvision import transforms
 
+# TODO: Move this constants to constants? Yes
 LABELS = {
     "cityscapes": {
         "road": {"color": (128, 64, 128), "id": 0},

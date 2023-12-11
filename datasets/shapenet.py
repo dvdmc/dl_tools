@@ -86,25 +86,25 @@ class ShapenetDataset(Dataset):
         ]
 
         self.image_files = []
-        self.anno_files = []
+        self.label_files = []
         for scene in scene_path:
             image_path = os.path.join(scene, "images")
-            anno_path = os.path.join(scene, "semantics")
+            label_path = os.path.join(scene, "semantics")
             scene_images = [
                 x
                 for x in glob.glob(os.path.join(image_path, "*"))
                 if (x.endswith(".jpg") or x.endswith(".png"))
             ]
             scene_images.sort()
-            scene_annos = [
+            scene_labels = [
                 x
-                for x in glob.glob(os.path.join(anno_path, "*"))
+                for x in glob.glob(os.path.join(label_path, "*"))
                 if (x.endswith(".jpg") or x.endswith(".png"))
             ]
             scene_images.sort()
-            scene_annos.sort()
+            scene_labels.sort()
             self.image_files += scene_images
-            self.anno_files += scene_annos
+            self.label_files += scene_labels
 
         self.img_to_tensor = transforms.ToTensor()
         self.transformations = transformations
@@ -114,34 +114,34 @@ class ShapenetDataset(Dataset):
         img_pil = Image.open(path_to_current_img)
         img = self.img_to_tensor(img_pil)
 
-        path_to_current_anno = self.anno_files[idx]
-        anno = self.get_anno(path_to_current_anno)
+        path_to_current_label = self.label_files[idx]
+        label = self.get_label(path_to_current_label)
 
-        # apply a set of transformations to the raw_image, image and anno
+        # apply a set of transformations to the raw_image, image and label
         for transformer in self.transformations:
-            img_pil, img, anno = transformer(img_pil, img, anno)
+            img_pil, img, label = transformer(img_pil, img, label)
 
-        anno = self.remap_annotation(anno.numpy())
+        label = self.remap_label(label.numpy())
 
-        return {"data": img, "image": img, "anno": anno, "index": idx}
+        return {"data": img, "image": img, "label": label, "index": idx}
 
     def __len__(self):
         return len(self.image_files)
 
-    def get_anno(self, path_to_current_anno):
-        anno = cv2.imread(path_to_current_anno)
-        anno = anno.astype(np.int64)  # torch does not support conversion of uint16
-        anno = np.moveaxis(anno, -1, 0)  # now in CHW mode
-        return torch.from_numpy(anno).long()
+    def get_label(self, path_to_current_label):
+        label = cv2.imread(path_to_current_label)
+        label = label.astype(np.int64)  # torch does not support conversion of uint16
+        label = np.moveaxis(label, -1, 0)  # now in CHW mode
+        return torch.from_numpy(label).long()
 
     @staticmethod
-    def remap_annotation(anno):
-        dims = anno.shape
+    def remap_label(label):
+        dims = label.shape
         assert len(dims) == 3, "wrong matrix dimension!!!"
         assert dims[0] == 3, "label must have 3 channels!!!"
 
         shapenet_labels = LABELS["shapenet"]
-        remapped_anno = (
+        remapped_label = (
             np.ones((dims[1], dims[2])) * shapenet_labels["background"]["id"]
         )
 
@@ -150,6 +150,6 @@ class ShapenetDataset(Dataset):
                 continue
 
             label_color = np.flip(np.array(label_info["color"])).reshape((3, 1, 1))
-            remapped_anno[(anno == label_color).all(axis=0)] = label_info["id"]
+            remapped_label[(label == label_color).all(axis=0)] = label_info["id"]
 
-        return torch.from_numpy(remapped_anno).long()
+        return torch.from_numpy(remapped_label).long()

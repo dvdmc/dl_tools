@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
 
+# TODO: Move to models? TOP folder
+# Move to evaluation folder.
 
 def precision_from_conf_matrices(
     conf_matrices: List[torch.Tensor], ignore_index: int = None
@@ -207,6 +209,9 @@ def compute_calibration_info(
 
 
 def ece_from_calibration_info(calibration_info_list: List, num_bins: int = 20) -> float:
+    """
+        TODO: explain
+    """
     conf_bin = torch.zeros(num_bins + 1)
     acc_bin = torch.zeros(num_bins + 1)
     prop_bin = torch.zeros(num_bins + 1)
