@@ -7,7 +7,7 @@ Common logging methods that apply to all methods are included here.
 When a method varies the pipeline execution (e.g. mc samples, ensembles, etc.)
 it is moved to a subclass that modifies the corresponding functions
 """
-from typing import List
+from typing import Dict, List, Optional
 import matplotlib
 
 matplotlib.use("Agg")
@@ -17,67 +17,36 @@ import seaborn as sns
 import torch
 import torch.nn as nn
 import torchmetrics
-from pytorch_lightning.core.lightning import LightningModule
+from pytorch_lightning import LightningModule
 
 import utils.utils as utils
-from constants import Losses, IGNORE_INDEX
-from models.loss import CrossEntropyLoss, NLLLoss, AleatoricLoss
+from constants import IGNORE_INDEX
+from models.loss import CrossEntropyLoss
 from utils import metrics
+
+from models import get_loss_fn
 
 class NetworkWrapper(LightningModule):
     """
-    Base class for the network wrapper. It implements common methods for all the methods.
+    Base class for the network wrapper. It implements common methods for all the network types.
     """
     def __init__(self, cfg: dict): #TODO (later): define a cfg dataclass ?
         super().__init__()
 
         self.cfg = cfg
         self.num_classes = self.cfg["model"]["num_classes"]
-        self.ignore_index = IGNORE_INDEX[self.cfg["data"]["name"]]
+        self.ignore_index = IGNORE_INDEX[cfg["data"]["name"]]
+        self.loss_fn = get_loss_fn(cfg)
         self.vis_step = 0
-        self.loss_fn = self.get_loss_fn()
 
-        # If class frequencies are provided, use it to weight the losses.
-        if "class_frequencies" in self.cfg["model"]:
-            class_frequencies = torch.Tensor(self.cfg["model"]["class_frequencies"])
-            self.inv_class_frequencies = class_frequencies.sum() / class_frequencies
-
-        # The following is supposed to be stored in val/tet steps fn respectively
-        # in subclasses
+        # The following is supposed to be stored in val/tet steps 
+        # fn respectively in subclasses
         self.val_step_outputs = []
         self.test_step_outputs = []
-    def get_loss_fn(self) -> nn.Module:
-        """
-        Returns the loss function based on the config file.
-        """
-        loss_name = self.cfg["model"]["loss"]
-
-        if loss_name == Losses.CROSS_ENTROPY:
-            return CrossEntropyLoss(
-                weight=self.inv_class_frequencies,
-                ignore_index=self.ignore_index
-                if self.ignore_index is not None
-                else -100,
-            )
-        elif loss_name == Losses.NLL:
-            return NLLLoss(
-                weight=self.inv_class_frequencies,
-                ignore_index=self.ignore_index
-                if self.ignore_index is not None
-                else -100,
-            )
-        elif loss_name == Losses.ALEATORIC:
-            return AleatoricLoss(
-                weight=self.inv_class_frequencies,
-                ignore_index=self.ignore_index
-                if self.ignore_index is not None
-                else -100,
-            )
-        else:
-            raise RuntimeError(f"Loss {loss_name} not available!")
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """
+        From LightningModule.
         Returns the optimizer based on the config file.
         TODO (later): do we add more optimizers?
         """
@@ -87,8 +56,7 @@ class NetworkWrapper(LightningModule):
             weight_decay=self.cfg["train"]["weight_decay"]
         )
         return optimizer
-
-
+    
     def training_step(self):
         raise NotImplementedError
 
@@ -101,8 +69,7 @@ class NetworkWrapper(LightningModule):
     def visualize_step(self):
         raise NotImplementedError
 
-
-    def validation_epoch_end(self):
+    def on_validation_epoch_end(self):
         """
         Log the confusion matrix and calibration info at the end of the validation epoch.
         WARN: This method is on_validation_epoch_end in new Lighting versions. Refactoring requires
@@ -113,14 +80,15 @@ class NetworkWrapper(LightningModule):
         outputs = self.val_step_outputs
         conf_matrices = [tmp["conf_matrix"] for tmp in outputs]
         calibration_info_list = [tmp["calibration_info"] for tmp in outputs]
-        self.track_evaluation_metrics(
+        self.log_classification_metrics(
             conf_matrices,
             stage="Validation",
             calibration_info_list=calibration_info_list,
         )
-        self.track_confusion_matrix(conf_matrices, stage="Validation")
+        self.log_confusion_matrix(conf_matrices, stage="Validation")
+        self.log_calibration_plots(calibration_info_list)
 
-        fig_ = metrics.compute_calibration_plots(outputs, num_bins=50)
+        fig_ = metrics.compute_calibration_plots(calibration_info_list, num_bins=50)
         self.logger.experiment.add_figure(
             "UncertaintyStats/Calibration", fig_, self.current_epoch
         )
@@ -141,26 +109,19 @@ class NetworkWrapper(LightningModule):
         conf_matrices = [tmp["conf_matrix"] for tmp in outputs]
         calibration_info_list = [tmp["calibration_info"] for tmp in outputs]
 
-        # TODO: Refactor to log evaluation metrics from conf. matrix.
-        self.track_evaluation_metrics(
+        self.log_classification_metrics(
             conf_matrices,
             stage="Test",
             calibration_info_list=calibration_info_list,
         )
+        self.log_confusion_matrix(conf_matrices, stage="Test")
+        self.log_calibration_plots(calibration_info_list)
 
-        self.track_confusion_matrix(conf_matrices, stage="Test")
-
-        # TODO: Refactor?
-        fig_ = metrics.compute_calibration_plots(outputs, num_bins=50)
-        self.logger.experiment.add_figure(
-            "UncertaintyStats/Calibration", fig_, self.current_epoch
-        )
-
-    def track_evaluation_metrics(  # not refactored
+    def log_classification_metrics(  # not refactored
         self,
         conf_matrices: List[torch.Tensor],
         stage: str = "Test",
-        calibration_info_list: List[dict] = None,
+        calibration_info_list: Optional[List[Dict]] = None,
     ):
         """
         Track the evaluation metrics based on the confusion matrices.
@@ -210,14 +171,13 @@ class NetworkWrapper(LightningModule):
             f"{stage}/ECE": ece,
         }
 
-    def track_confusion_matrix(self, conf_matrices: List[torch.Tensor], stage: str="Test"):  # not refactored
+    def log_confusion_matrix(self, conf_matrices: List[torch.Tensor], stage: str="Test"):  # not refactored
         """
-        Track the confusion matrix as a figure in seaborn because it looks better.
+        Log the confusion matrix as a figure in seaborn because it looks better.
         """
-        # TODO: Refactor, look into this.
-        total_conf_matrix = metrics.total_conf_matrix_from_conf_matrices(conf_matrices)
+        aggregated_matrix = metrics.aggregate_confusion_matrices(conf_matrices).cpu().numpy()
         df_cm = pd.DataFrame(
-            total_conf_matrix.cpu().numpy(),
+            aggregated_matrix,
             index=range(self.num_classes),
             columns=range(self.num_classes),
         )
@@ -234,9 +194,21 @@ class NetworkWrapper(LightningModule):
         plt.clf()
         plt.cla()
 
-    def track_gradient_norms(self):  # not refactored
+    def log_calibration_plots(self, calibration_info_list: List[Dict]):  # not refactored
         """
-        Track the gradient norms.
+        Log the calibration plots.
+
+        Args:
+            calibration_info_list (list): List of calibration info. TODO: Improve definition
+        """
+        fig_ = metrics.compute_calibration_plots(calibration_info_list, num_bins=50)
+        self.logger.experiment.add_figure(
+            "UncertaintyStats/Calibration", fig_, self.current_epoch
+        )
+
+    def log_gradient_norms(self):  # not refactored
+        """
+        Log the gradient norms.
         Debug gradient flow. Common problem RNNs.
         If gradients vanish: norm goes to 0. Mean you don't learn more.
         If gradients explode: norm goes to large number. Mean you always "diverge"
@@ -248,60 +220,72 @@ class NetworkWrapper(LightningModule):
 
         self.log(f"LossStats/GradientNorm", torch.tensor(total_grad_norm))
 
-    def plot_predictions( # not refactored TODO: Move plot predictions to some utils?
+    def log_prediction_images( # not refactored TODO: Move plot predictions to some utils?
         self,
-        images: torch.Tensor,
-        hard_predictions: torch.Tensor,
-        prob_predictions: torch.Tensor,
-        targets: torch.Tensor,
+        image: torch.Tensor,
+        true_label: torch.Tensor,
+        argmax_pred: torch.Tensor,
+        prob_pred: torch.Tensor,
         stage: str = "Test",
         step: int = 0,
-        uncertainties=None, # TODO: Unc. are not general.
+        uncertainty: Optional[torch.Tensor] = None,
     ):
-        # TODO: Refactor this method to either take one image or sample from the batch. 
-        # or support other kind of batch plotting
-        sample_img_out = hard_predictions[:1]
-        sample_img_out = utils.toOneHot(sample_img_out, self.cfg["data"]["name"])
+        """
+        Log prediction images.
+        All the images should be in CHW format, TODO: check this
+        detached from the graph and in CPU.  TODO: check this
+        Args:
+            image (torch.Tensor): Input image
+            true_label (torch.Tensor): Ground truth label
+            argmax_pred (torch.Tensor): Predicted label
+            prob_pred (torch.Tensor): Predicted probabilities
+            stage (str): Stage of the pipeline
+            step (int): Step of the pipeline
+            uncertainty (torch.Tensor): Uncertainty
+        """
+        # Plot the input image TODO: check the squeezes in this method
+        self.logger.experiment.add_image(
+            f"{stage}/Input image", image.squeeze(), step, dataformats="CHW"
+        )
+
+        # Plot the output image as a label mask TODO: toOneHot transforms to detach.cpu.numpy(). fix.
+        imap_pred = utils.toOneHot(argmax_pred, self.cfg["data"]["name"])
         self.logger.experiment.add_image(
             f"{stage}/Output image",
-            torch.from_numpy(sample_img_out),
+            torch.from_numpy(imap_pred),
             step,
             dataformats="HWC",
         )
-        sample_img_in = images[:1]
-        sample_anno = targets[:1]
 
+        # Plot the ground truth label as a label mask
+        imap_true = utils.toOneHot(true_label, self.cfg["data"]["name"])
         self.logger.experiment.add_image(
-            f"{stage}/Input image", sample_img_in.squeeze(), step, dataformats="CHW"
+            f"{stage}/Annotation",
+            torch.from_numpy(imap_true),
+            step,
+            dataformats="HWC",
         )
 
-        sample_prob_prediction = prob_predictions[:1]
+        # Plot the error image with the cross entropy loss TODO: Change to configured loss?
         cross_entropy_fn = CrossEntropyLoss(reduction="none")
         sample_error_img = cross_entropy_fn(
-            sample_prob_prediction, sample_anno
+            prob_pred, true_label
         ).squeeze()
-
-        sizes = sample_img_out.shape
+        sizes = imap_pred.shape # TODO: what is this for?
         px = 1 / plt.rcParams["figure.dpi"]
         fig = plt.figure(figsize=(px * sizes[1], px * sizes[0]))
         ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
         ax.set_axis_off()
         ax.imshow(sample_error_img.cpu().numpy(), cmap="gray")
-        fig.add_axes(ax)
         self.logger.experiment.add_figure(f"{stage}/Error image", fig, step)
+
+        fig.add_axes(ax)
         plt.cla()
         plt.clf()
 
-        sample_anno = utils.toOneHot(sample_anno, self.cfg["data"]["name"])
-        self.logger.experiment.add_image(
-            f"{stage}/Annotation",
-            torch.from_numpy(sample_anno),
-            step,
-            dataformats="HWC",
-        )
-
-        if uncertainties is not None:
-            sample_al_unc_out = uncertainties.cpu().numpy()[0, :, :]
+        # Uncertainty
+        if uncertainty is not None:
+            sample_al_unc_out = uncertainty.cpu().numpy()[0, :, :]
             fig = plt.figure(figsize=(px * sizes[1], px * sizes[0]))
             ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
             ax.set_axis_off()

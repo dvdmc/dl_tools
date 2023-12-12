@@ -8,7 +8,7 @@ import seaborn as sns
 import torch
 import torch.nn as nn
 import torchmetrics
-from pytorch_lightning.core.lightning import LightningModule
+from pytorch_lightning import LightningModule
 
 import utils.utils as utils
 from constants import Losses, IGNORE_INDEX
@@ -19,7 +19,7 @@ from models.unet.unet import UNetModel, AleatoricUNetModel
 
 from models.network_wrapper import NetworkWrapper
 
-class Network(NetworkWrapper):
+class DeterministicNetwork(NetworkWrapper):
     """
         Network Wrapper
         It is deterministic
@@ -28,18 +28,15 @@ class Network(NetworkWrapper):
         TODO: With this we assume that any classification model offers "some" kind of uncertainty.
                 How does this work for regression,  panoptic, foundational...?
     """
-    def __init__(self, name: str, cfg: dict) -> None:
-        super(Network, self).__init__(cfg)
+    def __init__(self, model: nn.Module, cfg: dict) -> None:
+        super(DeterministicNetwork, self).__init__(cfg)
 
         self.save_hyperparameters()
         self.vis_interval = self.cfg["train"]["visualization_interval"] # TODO: For what?
         self.softmax = nn.Softmax(dim=1) # Common output for all deterministic models
 
         # Configure model
-        if name == "erfnet":
-            self.model = ERFNetModel(self.num_classes)
-        elif name == "unet":
-            self.model = UNetModel(self.num_classes)
+        self.model = model
 
     def forward(self, x):
         """
@@ -60,7 +57,7 @@ class Network(NetworkWrapper):
         out = self.forward(batch["data"])
         loss = self.loss_fn(out, true_label)
 
-        self.track_gradient_norms()
+        self.log_gradient_norms()
         self.log("train:loss", loss)
         return loss
 
@@ -132,11 +129,11 @@ class Network(NetworkWrapper):
         true_label = batch["label"]
         logits, probs, pred_label, unc = self.get_predictions(batch["data"])
 
-        self.plot_predictions( # TODO: Move plot predictions to some utils?
-            batch["data"],
-            pred_label,
-            probs,
-            true_label,
+        self.log_prediction_images( # TODO: Check inputs, they are not the expected
+            batch["data"][0].cpu().numpy().transpose(1, 2, 0),
+            pred_label[0].cpu().numpy(),
+            probs[0].cpu().numpy(),
+            true_label[0].cpu().numpy(),
             stage="Validation",
             step=self.vis_step,
             uncertainties=unc,

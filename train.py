@@ -1,5 +1,6 @@
 from os.path import abspath, dirname, join
-import click
+from typing import Optional
+import tyro
 import yaml
 from pytorch_lightning import Trainer
 from pytorch_lightning import loggers as pl_loggers
@@ -18,30 +19,19 @@ warnings.filterwarnings("ignore")
 ##############################################################################################
 
 
-@click.command()
-### Add your options here
-@click.option(
-    "--config",
-    "-c",
-    type=str,
-    help="path to the config file (.yaml)",
-    default=join(dirname(abspath(__file__)), "config", "config.yaml"),
-)
-@click.option(
-    "--weights",
-    "-w",
-    type=str,
-    help="path to pretrained weights (.ckpt). Use this flag if you just want to load the weights from the checkpoint file without resuming training.",
-    default=None,
-)
-@click.option(
-    "--checkpoint",
-    "-ckpt",
-    type=str,
-    help="path to checkpoint file (.ckpt) to resume training.",
-    default=None,
-)
-def main(config, weights, checkpoint):
+def main(
+    config: Optional[str] = join(dirname(abspath(__file__))),
+    weights: Optional[str] = None, # TODO: add possibility to load weights
+    checkpoint: Optional[str] = None,
+):
+    """
+    Train a model
+
+    Args:
+        config (str): path to config file (.yaml)
+        weights (str): path to pretrained weights (.ckpt)
+        checkpoint (str): path to checkpoint file (.ckpt) to resume training.
+    """
     with open(config, "r") as config_file:
         cfg = yaml.safe_load(config_file)
 
@@ -49,9 +39,6 @@ def main(config, weights, checkpoint):
     data = get_data_module(cfg)
     model = get_model(cfg)
     print(model)
-
-    if weights:
-        model = model.load_from_checkpoint(weights, cfg=cfg)
 
     # Add callbacks
     lr_monitor = LearningRateMonitor(logging_interval="step")
@@ -68,16 +55,16 @@ def main(config, weights, checkpoint):
 
     # Setup trainer
     trainer = Trainer(
-        gpus=cfg["train"]["n_gpus"],
+        devices=cfg["train"]["n_gpus"],
         logger=tb_logger,
-        resume_from_checkpoint=checkpoint,
+        
         max_epochs=cfg["train"]["max_epoch"],
         callbacks=[lr_monitor, checkpoint_saver],
     )
 
     # Train!
-    trainer.fit(model, data)
+    trainer.fit(model, data, ckpt_path=checkpoint)
 
 
 if __name__ == "__main__":
-    main()
+    tyro.cli(main)

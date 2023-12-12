@@ -168,7 +168,7 @@ def accuracy_from_conf_matrices(
     return (torch.sum(true_predictions) / torch.sum(num_predictions)).item()
 
 
-def total_conf_matrix_from_conf_matrices(
+def aggregate_confusion_matrices(
     conf_matrices: List[torch.Tensor],
 ) -> torch.Tensor:
     total_conf_matrix = torch.sum(torch.stack(conf_matrices), dim=0) / len(
@@ -231,9 +231,8 @@ def ece_from_calibration_info(calibration_info_list: List, num_bins: int = 20) -
     ).item()
 
 
-def compute_calibration_plots(outputs: List[Dict], num_bins: int = 20):
+def compute_calibration_plots(calibration_info_list: List[Dict], num_bins: int = 20):
     bin_boundaries = torch.linspace(0, 1, num_bins + 1, dtype=torch.float)
-    calibration_info_list = [tmp["calibration_info"] for tmp in outputs]
     conf_bin = torch.zeros(num_bins + 1)
     acc_bin = torch.zeros(num_bins + 1)
     prop_bin = torch.zeros(num_bins + 1)

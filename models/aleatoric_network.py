@@ -21,7 +21,7 @@ class AleatoricNetwork(NetworkWrapper):
         - The uncertainty in this case is the ... (entropy...?) and viualized. 
         TODO: clarify extracted from aleatoric NN.
     """
-    def __init__(self, name: str, cfg: dict) -> None:
+    def __init__(self, model: nn.Module, cfg: dict) -> None:
         super(AleatoricNetwork, self).__init__(cfg)
 
         self.save_hyperparameters()
@@ -29,10 +29,9 @@ class AleatoricNetwork(NetworkWrapper):
         self.vis_interval = self.cfg["train"]["visualization_interval"]
         self.softmax = nn.Softmax(dim=1)
         self.softplus = nn.Softplus(beta=1) + 1e-8
-        if name == "erfnet":
-            self.model = AleatoricERFNetModel(self.num_classes)
-        elif name == "unet":
-            self.model = AleatoricUNetModel(self.num_classes)
+        
+        # Configure model
+        self.model = model
 
     def forward(self, x):
         """
@@ -77,8 +76,8 @@ class AleatoricNetwork(NetworkWrapper):
         mean_probs = self.sample_from_aleatoric_model(est_seg, est_std)
         loss = self.loss_fn(mean_probs, true_label)
 
-        self.track_uncertainty_stats(est_std)
-        self.track_gradient_norms()
+        self.log_uncertainty_stats(est_std)
+        self.log_gradient_norms()
         self.log("train:loss", loss)
         return loss
 
@@ -147,11 +146,11 @@ class AleatoricNetwork(NetworkWrapper):
         true_label = batch["label"]
         final_prob, pred_label, aleatoric_unc = self.get_predictions(batch["data"])
 
-        self.plot_predictions(
-            batch["data"],
-            pred_label,
-            final_prob,
-            true_label,
+        self.log_prediction_images( # TODO: The input format is wrong! check
+            batch["data"][0].cpu().numpy(),
+            pred_label.cpu().numpy(),
+            final_prob.cpu().numpy(),
+            true_label.cpu().numpy(),
             stage="Validation",
             step=self.vis_step,
             uncertainties=aleatoric_unc,
@@ -187,7 +186,7 @@ class AleatoricNetwork(NetworkWrapper):
 
         return mean_probs, pred_label, aleatoric_unc
 
-    def track_uncertainty_stats(self, std: torch.Tensor):
+    def log_uncertainty_stats(self, std: torch.Tensor):
         """
         Tracks some interesting statistics about the uncertainty
 
