@@ -1,10 +1,10 @@
 from typing import Tuple
-import matplotlib
 
-matplotlib.use("Agg")
 import torch
 import torch.nn as nn
 import torchmetrics
+
+from utils import metrics
 
 from models.network_wrapper import NetworkWrapper
 
