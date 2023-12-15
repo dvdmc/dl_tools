@@ -1,21 +1,10 @@
-from ast import Tuple
+from typing import Tuple
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
 import torch
 import torch.nn as nn
 import torchmetrics
-from pytorch_lightning import LightningModule
-
-import utils.utils as utils
-from constants import Losses, IGNORE_INDEX
-from models.loss import CrossEntropyLoss, NLLLoss, AleatoricLoss
-from utils import metrics
-from models.erfnet.erfnet import ERFNetModel, AleatoricERFNetModel
-from models.unet.unet import UNetModel, AleatoricUNetModel
 
 from models.network_wrapper import NetworkWrapper
 
@@ -140,7 +129,7 @@ class DeterministicNetwork(NetworkWrapper):
         )
 
     @torch.no_grad()
-    def get_predictions(self, data: torch.Tensor) -> Tuple[torch.Tensor, ...]:
+    def get_predictions(self, data: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Function used to get predictions from the model
         This is what you would expect a deployed model to do.

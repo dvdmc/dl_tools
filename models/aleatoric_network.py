@@ -1,16 +1,12 @@
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
+
 import torch
 import torch.nn as nn
 import torchmetrics
 
 from utils import metrics
-from models.erfnet.aleatoric_erfnet import AleatoricERFNetModel
-from models.unet.aleatoric_unet import AleatoricUNetModel
 
 from models.network_wrapper import NetworkWrapper
 
@@ -28,7 +24,7 @@ class AleatoricNetwork(NetworkWrapper):
         self.num_mc_aleatoric = self.cfg["train"]["num_mc_aleatoric"]
         self.vis_interval = self.cfg["train"]["visualization_interval"]
         self.softmax = nn.Softmax(dim=1)
-        self.softplus = nn.Softplus(beta=1) + 1e-8
+        self.softplus = nn.Softplus(beta=1)
         
         # Configure model
         self.model = model
@@ -175,13 +171,13 @@ class AleatoricNetwork(NetworkWrapper):
         self.model.eval()
         est_seg, est_std_log = self.forward(data)
         
-        est_std = self.softplus(est_std_log)
+        est_std = self.softplus(est_std_log) + 10e-8
         mean_probs = self.sample_from_aleatoric_model(est_seg, est_std)
 
         _, pred_label = torch.max(mean_probs, dim=1)
 
         aleatoric_unc = -torch.sum(
-            mean_probs * torch.log(mean_probs + 10 ** (-8)), dim=1
+            mean_probs * torch.log(mean_probs + 10e-8), dim=1
         ) / torch.log(torch.tensor(self.num_classes))
 
         return mean_probs, pred_label, aleatoric_unc
