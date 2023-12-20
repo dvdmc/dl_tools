@@ -52,20 +52,27 @@ def get_loss_fn(cfg) -> torch.nn.Module:
         else:
             raise RuntimeError(f"Loss {loss_name} not available!")
 
-from models.deterministic_network import DeterministicNetwork
-from models.aleatoric_network import AleatoricNetwork
+from models.deterministic_network import DeterministicNetwork, DeterministicNetworkWrapper
+from models.aleatoric_network import AleatoricNetwork, AleatoricNetworkWrapper
 from models.erfnet.erfnet import ERFNetModel
 from models.erfnet.aleatoric_erfnet import AleatoricERFNetModel
 from models.unet.unet import UNetModel
 from models.unet.aleatoric_unet import AleatoricUNetModel
 
+from torchvision.models.segmentation.deeplabv3 import deeplabv3_resnet50
+
 # TODO: Probably, the concept of model should change to "pipeline" or something similar.
+network_wrapper = {
+    "deterministic": DeterministicNetworkWrapper,
+    "aleatoric": AleatoricNetworkWrapper,
+}
+
 networks = {
     "deterministic": DeterministicNetwork,
     "aleatoric": AleatoricNetwork,
 }
 
-models = {
+deterministic_models = {
     "erfnet": ERFNetModel,
     "unet": UNetModel,
 }
@@ -75,30 +82,30 @@ aleatoric_models = {
     "unet": AleatoricUNetModel,
 }
 
+models_dict = {
+    "deterministic": deterministic_models,
+    "aleatoric": aleatoric_models,
+}
+
 losses = {
     "cross_entropy": CrossEntropyLoss,
     "nll": NLLLoss,
     "aleatoric": AleatoricLoss,
 }
 
-# TODO: We have to refactor the network/model naming.
-#       - The "model" (ERFNet, UNet) should include the architecture (model)
-#       and a few utilities like "get_predictions", "visualize?"
-#      - The "network" (Deterministic, Aleatoric) should include the training loop
-#       logs, loss...
 def get_model(cfg) -> LightningModule:
     network_type = cfg["model"]["type"]
 
     if isinstance(cfg, dict):
-        try:
-            model_name = cfg["model"]["name"]
-            if network_type == "deterministic":
-                return networks[network_type](models[model_name](cfg["model"]["num_classes"]), cfg)
-            elif network_type == "aleatoric":
-                return networks[network_type](aleatoric_models[model_name](cfg["model"]["num_classes"]), cfg)
-            else:
-                raise RuntimeError(f"Model {model_name} not implemented")            
-        except KeyError:
-            raise RuntimeError(f"Model {model_name} not implemented")
+        model_name = cfg["model"]["name"]
+        network_type = cfg["model"]["type"]
+        
+        models_for_type = models_dict[network_type]        
+        model = models_for_type[model_name](cfg["model"]["num_classes"])        
+        network = networks[network_type](model, cfg)        
+        network_wrapper_class = network_wrapper[network_type]        
+        
+        return network_wrapper_class(network, cfg)
+    
     else:
         raise RuntimeError(f"{type(cfg)} not a valid config")

@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore")
 
 
 def main(
-    config: Optional[str] = join(dirname(abspath(__file__))),
+    config: str = join(dirname(abspath(__file__))),
     weights: Optional[str] = None, # TODO: add possibility to load weights
     checkpoint: Optional[str] = None,
 ):

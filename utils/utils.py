@@ -36,7 +36,7 @@ def imap2rgb(imap, channel_order, theme):
 
 # TODO: Fix this
 def toOneHot(tensor, dataset_name):
-    img = tensor.detach().cpu().numpy()[0]
+    img = tensor
     if len(img.shape) == 3:
         img = np.transpose(img, (1, 2, 0))
         img = np.argmax(img, axis=-1)
