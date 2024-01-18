@@ -15,10 +15,8 @@ class DownsamplerBlock(nn.Module):
         ninput (int): Number of input channels
         noutput (int): Number of output channels
 
-    Returns:
-        nn.Module: Downsampler block
     """
-    def __init__(self, ninput: int, noutput: int) -> nn.Module:
+    def __init__(self, ninput: int, noutput: int) -> None:
         super().__init__()
 
         self.conv = nn.Conv2d(
@@ -42,10 +40,8 @@ class non_bottleneck_1d(nn.Module):
         dropprob (float): Dropout probability
         dilated (int): Dilation factor
 
-    Returns:
-        nn.Module: non_bottleneck_1d block
     """
-    def __init__(self, chann: int, dropprob: float, dilated: int) -> nn.Module:
+    def __init__(self, chann: int, dropprob: float, dilated: int) ->None:
         super().__init__()
 
         self.conv3x1_1 = nn.Conv2d(
@@ -107,10 +103,8 @@ class ERFNetEncoder(nn.Module):
     Args:
         num_classes (int): Number of classes
 
-    Returns:
-        nn.Module: Encoder
     """
-    def __init__(self, num_classes: int) -> nn.Module:
+    def __init__(self, num_classes: int) -> None:
         super().__init__()
         self.initial_block = DownsamplerBlock(3, 16)
 
@@ -146,10 +140,8 @@ class UpsamplerBlock(nn.Module):
         ninput (int): Number of input channels
         noutput (int): Number of output channels
 
-    Returns:
-        nn.Module: Upsampler block
     """
-    def __init__(self, ninput: int, noutput: int) -> nn.Module:
+    def __init__(self, ninput: int, noutput: int) -> None:
         super().__init__()
         self.conv = nn.ConvTranspose2d(
             ninput, noutput, 3, stride=2, padding=1, output_padding=1, bias=True
@@ -169,10 +161,8 @@ class ERFNetDecoder(nn.Module):
     Args:
         num_classes (int): Number of classes
 
-    Returns:
-        nn.Module: Decoder
     """
-    def __init__(self, num_classes: int) -> nn.Module:
+    def __init__(self, num_classes: int) -> None:
         super().__init__()
 
         self.layers = nn.ModuleList()

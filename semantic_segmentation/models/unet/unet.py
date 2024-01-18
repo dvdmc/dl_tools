@@ -33,10 +33,8 @@ class UNetModel(nn.Module):
     Args:
         num_classes (int): Number of classes
 
-    Returns:
-        nn.Module: UNet model
     """
-    def __init__(self, num_classes: int) -> nn.Module:
+    def __init__(self, num_classes: int) -> None:
         super().__init__()
         self.num_classes = num_classes
 

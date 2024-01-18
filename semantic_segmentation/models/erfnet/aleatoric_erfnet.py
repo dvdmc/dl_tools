@@ -4,6 +4,7 @@
     the aleatoric uncertainty as a standard deviation.
     From: https://proceedings.neurips.cc/paper_files/paper/2017/file/2650d6089a6d640c5e85b2b88265dc2b-Paper.pdf
 """
+from typing import Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,10 +18,8 @@ class ERFNetAleatoricDecoder(nn.Module):
     Args:
         num_classes (int): Number of classes
 
-    Returns:
-        nn.Module: Decoder
     """
-    def __init__(self, num_classes: int) -> nn.Module:
+    def __init__(self, num_classes: int) -> None:
         super().__init__()
         self.num_classes = num_classes
         self.layers = nn.ModuleList()
@@ -38,7 +37,7 @@ class ERFNetAleatoricDecoder(nn.Module):
         )
 
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
             Outputs a tuple of (segmentation, standard deviation)
         """
