@@ -1,3 +1,4 @@
+
 class Losses:
     CROSS_ENTROPY = "xentropy"
     MSE = "mse"

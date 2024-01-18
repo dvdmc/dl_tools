@@ -4,7 +4,7 @@ import torch
 from pytorch_lightning import LightningModule
 from torch import nn
 from torchvision import transforms
-from constants import LABELS, THEMES
+from semantic_segmentation.constants import LABELS, THEMES
 
 def imap2rgb(imap, channel_order, theme):
     """converts an iMap label image into a RGB Color label image,

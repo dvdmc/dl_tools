@@ -105,3 +105,5 @@ def resize(
         image = torch.squeeze(image)
 
         return image
+    
+    raise ValueError("Something went wrong. Please check your input parameters.")

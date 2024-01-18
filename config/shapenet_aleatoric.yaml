@@ -4,7 +4,7 @@ experiment:
 ##Data
 data:
     name: 'shapenet'
-    path_to_dataset: '../dataset/shapenet_dataset/data'
+    path_to_dataset: '/media/david/dataset/shapenet/shapenet_test'
     img_prop:
         width: 400
         height: 400
@@ -59,7 +59,7 @@ test:
 
 ##Network
 model:
-    type: 'aleatoric_network' # network, aleatoric_network
+    type: 'aleatoric' # network, aleatoric_network
     name: "unet" # erfnet, unet
     num_classes: 7
     loss: 'nll' # xentropy, nll

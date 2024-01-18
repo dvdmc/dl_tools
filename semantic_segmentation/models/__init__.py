@@ -7,11 +7,12 @@
     - Loss: The loss function
 """
 
+from typing import Union
 import torch
 from pytorch_lightning import LightningModule
 
-from constants import Losses, IGNORE_INDEX
-from models.loss import CrossEntropyLoss, NLLLoss, AleatoricLoss
+from semantic_segmentation.constants import Losses, IGNORE_INDEX
+from semantic_segmentation.models.loss import CrossEntropyLoss, NLLLoss, AleatoricLoss
 
 def get_loss_fn(cfg) -> torch.nn.Module:
         """
@@ -52,14 +53,19 @@ def get_loss_fn(cfg) -> torch.nn.Module:
         else:
             raise RuntimeError(f"Loss {loss_name} not available!")
 
-from models.deterministic_network import DeterministicNetwork, DeterministicNetworkWrapper
-from models.aleatoric_network import AleatoricNetwork, AleatoricNetworkWrapper
-from models.erfnet.erfnet import ERFNetModel
-from models.erfnet.aleatoric_erfnet import AleatoricERFNetModel
-from models.unet.unet import UNetModel
-from models.unet.aleatoric_unet import AleatoricUNetModel
+from semantic_segmentation.models.deterministic_network import DeterministicNetwork, DeterministicNetworkWrapper
+from semantic_segmentation.models.aleatoric_network import AleatoricNetwork, AleatoricNetworkWrapper
+from semantic_segmentation.models.erfnet.erfnet import ERFNetModel
+from semantic_segmentation.models.erfnet.aleatoric_erfnet import AleatoricERFNetModel
+from semantic_segmentation.models.unet.unet import UNetModel
+from semantic_segmentation.models.unet.aleatoric_unet import AleatoricUNetModel
 
 from torchvision.models.segmentation.deeplabv3 import deeplabv3_resnet50
+
+NetworkWrapperType = Union['DeterministicNetworkWrapper', 'AleatoricNetworkWrapper']
+NetworkType = Union['DeterministicNetwork', 'AleatoricNetwork']
+ModelType = Union['ERFNetModel', 'AleatoricERFNetModel', 'UNetModel', 'AleatoricUNetModel']
+LossType = Union['CrossEntropyLoss', 'NLLLoss', 'AleatoricLoss']
 
 # TODO: Probably, the concept of model should change to "pipeline" or something similar.
 network_wrapper = {

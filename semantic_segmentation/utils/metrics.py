@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import matplotlib
 
@@ -11,7 +11,7 @@ import torch
 # Move to evaluation folder.
 
 def precision_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> float:
     def conf_mat_masked(conf_mat):
         if ignore_index is None:
@@ -42,7 +42,7 @@ def precision_from_conf_matrices(
 
 
 def recall_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> float:
     def conf_mat_masked(conf_mat):
         if ignore_index is None:
@@ -70,7 +70,7 @@ def recall_from_conf_matrices(
 
 
 def f1_score_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> float:
     precision = precision_from_conf_matrices(conf_matrices, ignore_index=ignore_index)
     recall = recall_from_conf_matrices(conf_matrices, ignore_index=ignore_index)
@@ -82,7 +82,7 @@ def f1_score_from_conf_matrices(
 
 
 def per_class_iou_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> torch.Tensor:
     def conf_mat_masked(conf_mat):
         if ignore_index is None:
@@ -111,7 +111,7 @@ def per_class_iou_from_conf_matrices(
 
 
 def weighted_iou_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], weight, ignore_index: int = None
+    conf_matrices: List[torch.Tensor], weight, ignore_index: Optional[int] = None
 ) -> float:
     per_class_iou = per_class_iou_from_conf_matrices(
         conf_matrices, ignore_index=ignore_index
@@ -133,7 +133,7 @@ def weighted_iou_from_conf_matrices(
 
 
 def mean_iou_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> float:
     per_class_iou = per_class_iou_from_conf_matrices(
         conf_matrices, ignore_index=ignore_index
@@ -148,7 +148,7 @@ def mean_iou_from_conf_matrices(
 
 
 def accuracy_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> float:
     def conf_mat_masked(conf_mat):
         if ignore_index is None:

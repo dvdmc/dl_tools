@@ -5,8 +5,8 @@ import yaml
 from pytorch_lightning import Trainer
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-from datasets import get_data_module
-from models import get_model
+from semantic_segmentation.datasets import get_data_module
+from semantic_segmentation.models import get_model
 import warnings
 
 warnings.filterwarnings("ignore")

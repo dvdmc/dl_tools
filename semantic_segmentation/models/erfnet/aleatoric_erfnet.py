@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.erfnet.erfnet import UpsamplerBlock, non_bottleneck_1d, ERFNetEncoder
+from semantic_segmentation.models.erfnet.erfnet import UpsamplerBlock, non_bottleneck_1d, ERFNetEncoder
 
 class ERFNetAleatoricDecoder(nn.Module):
     """

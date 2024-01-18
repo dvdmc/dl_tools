@@ -85,6 +85,11 @@ class ShapenetDataset(Dataset):
             os.path.join(data_rootdir, "scene" + scene_id) for scene_id in scene_id_list
         ]
 
+        # Check if scenes exist. Print warning if not.
+        for scene in scene_path:
+            if not os.path.exists(scene):
+                print(f"Warning: {scene} does not exist!")
+
         self.image_files = []
         self.label_files = []
         for scene in scene_path:
@@ -105,7 +110,7 @@ class ShapenetDataset(Dataset):
             scene_labels.sort()
             self.image_files += scene_images
             self.label_files += scene_labels
-
+        print(f"Found {len(self.image_files)} images for {mode} mode")
         self.img_to_tensor = transforms.ToTensor()
         self.transformations = transformations
 

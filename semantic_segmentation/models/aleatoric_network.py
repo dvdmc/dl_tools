@@ -8,7 +8,7 @@ import torchmetrics
 
 from utils import metrics
 
-from models.base_network import BaseNetwork, NetworkWrapper
+from semantic_segmentation.models.base_network import BaseNetwork, NetworkWrapper
 
 class AleatoricNetwork(BaseNetwork):
     """
@@ -99,6 +99,7 @@ class AleatoricNetworkWrapper(NetworkWrapper):
     """
     def __init__(self, network: AleatoricNetwork, cfg: dict) -> None:
         super(AleatoricNetworkWrapper, self).__init__(network, cfg)
+        self.network = network # For typing purposes
         self.save_hyperparameters()
         self.vis_interval = self.cfg["train"]["visualization_interval"]
 

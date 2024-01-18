@@ -4,8 +4,8 @@ from pytorch_lightning import Trainer
 from pytorch_lightning import loggers as pl_loggers
 import yaml
 import torch
-from datasets import get_data_module
-from models import get_model
+from semantic_segmentation.datasets import get_data_module
+from semantic_segmentation.models import get_model
 
 
 def main(checkpoint: str):

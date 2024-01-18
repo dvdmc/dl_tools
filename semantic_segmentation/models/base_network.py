@@ -7,10 +7,7 @@ Common logging methods that apply to all methods are included here.
 When a method varies the pipeline execution (e.g. mc samples, ensembles, etc.)
 it is moved to a subclass that modifies the corresponding functions
 """
-from typing import Dict, List, Optional, Tuple, Union
-import matplotlib
-
-matplotlib.use("Agg")
+from __future__ import annotations
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -19,12 +16,15 @@ import torch.nn as nn
 import torchmetrics
 from pytorch_lightning import LightningModule
 
-import utils.utils as utils
-from constants import IGNORE_INDEX
-from models.loss import CrossEntropyLoss
-from utils import metrics
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+import semantic_segmentation.utils.utils as utils
+from semantic_segmentation.constants import IGNORE_INDEX
+from semantic_segmentation.models import get_loss_fn
+from semantic_segmentation.models.loss import CrossEntropyLoss
+from semantic_segmentation.utils import metrics
 
-from models import get_loss_fn
+if TYPE_CHECKING:
+    from semantic_segmentation.models import NetworkType
 
 class BaseNetwork:
     """
@@ -72,10 +72,11 @@ class NetworkWrapper(LightningModule):
     """
     Base class for the network wrapper. It implements common methods for all the network types.
     """
-    def __init__(self, network: BaseNetwork, cfg: dict): #TODO (later): define a cfg dataclass ?
+    def __init__(self, network: NetworkType, cfg: dict): #TODO (later): define a cfg dataclass ?
         super(NetworkWrapper, self).__init__()
         self.cfg = cfg
         self.network = network
+        
         self.model = self.network.model # Lightning requires the model to be an attribute
         self.ignore_index = IGNORE_INDEX[cfg["data"]["name"]]
         self.loss_fn = get_loss_fn(cfg)
@@ -321,7 +322,7 @@ class NetworkWrapper(LightningModule):
         sizes = imap_pred.shape # TODO: what is this for?
         px = 1 / plt.rcParams["figure.dpi"]
         fig = plt.figure(figsize=(px * sizes[1], px * sizes[0]))
-        ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
+        ax = plt.Axes(fig, (0.0, 0.0, 1.0, 1.0))
         ax.set_axis_off()
         ax.imshow(sample_error_img.cpu().numpy(), cmap="gray")
         self.logger.experiment.add_figure(f"{stage}/Error image", fig, step)
@@ -334,7 +335,7 @@ class NetworkWrapper(LightningModule):
         if uncertainty is not None:
             unc_np = uncertainty.numpy()
             fig = plt.figure(figsize=(px * sizes[1], px * sizes[0]))
-            ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
+            ax = plt.Axes(fig, (0.0, 0.0, 1.0, 1.0))
             ax.set_axis_off()
             ax.imshow(unc_np, cmap="plasma")
             fig.add_axes(ax)

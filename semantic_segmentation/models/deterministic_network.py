@@ -6,7 +6,7 @@ import torchmetrics
 
 from utils import metrics
 
-from models.base_network import BaseNetwork, NetworkWrapper
+from semantic_segmentation.models.base_network import BaseNetwork, NetworkWrapper
 
 class DeterministicNetwork(BaseNetwork):
     """
@@ -30,7 +30,7 @@ class DeterministicNetwork(BaseNetwork):
 
 
     @torch.no_grad()
-    def get_predictions(self, data: torch.Tensor) -> Tuple[torch.Tensor]:
+    def get_predictions(self, data: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Function used to get predictions from the model
         This is what you would expect a deployed model to do.
@@ -47,7 +47,7 @@ class DeterministicNetwork(BaseNetwork):
         """
         self.model.eval()
         logits = self.forward(data)
-        probs = self.softmax(logits)
+        probs: torch.Tensor = self.softmax(logits)
         _, pred_label = torch.max(probs, dim=1)
 
         unc = -torch.sum(probs * torch.log(probs + 10e-8), dim=1) / torch.log(
@@ -68,7 +68,7 @@ class DeterministicNetworkWrapper(NetworkWrapper):
     """
     def __init__(self, network: DeterministicNetwork, cfg: dict) -> None:
         super(DeterministicNetworkWrapper, self).__init__(network, cfg)
-
+        self.network = network # For typing purposes
         self.save_hyperparameters()
         self.vis_interval = self.cfg["train"]["visualization_interval"] # TODO: For what?
 

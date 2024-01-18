@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.unet.unet import double_conv
+from semantic_segmentation.models.unet.unet import double_conv
 
 class AleatoricUNetModel(nn.Module):
     """

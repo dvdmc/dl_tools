@@ -287,10 +287,10 @@ class MyRandomColorJitterTransform(Transformation):
 
     def __init__(
         self,
-        brightness: Optional[float] = 0.0,
-        contrast: Optional[int] = 0.0,
-        saturation: Optional[int] = 0.0,
-        hue: Optional[int] = 0.0,
+        brightness: float = 0.0,
+        contrast: float = 0.0,
+        saturation: float = 0.0,
+        hue: float = 0.0,
     ):
         """Set colour jitter parameters.
         See: https://pytorch.org/vision/stable/transforms.html
