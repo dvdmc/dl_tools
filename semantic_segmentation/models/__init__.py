@@ -100,8 +100,6 @@ losses = {
 }
 
 def get_model(cfg) -> LightningModule:
-    network_type = cfg["model"]["type"]
-
     if isinstance(cfg, dict):
         model_name = cfg["model"]["name"]
         network_type = cfg["model"]["type"]
