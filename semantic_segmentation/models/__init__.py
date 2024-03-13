@@ -56,32 +56,38 @@ from semantic_segmentation.models.erfnet.aleatoric_erfnet import AleatoricERFNet
 from semantic_segmentation.models.unet.unet import UNetModel
 from semantic_segmentation.models.unet.aleatoric_unet import AleatoricUNetModel
 
-from torchvision.models.segmentation.deeplabv3 import deeplabv3_resnet50
+from semantic_segmentation.models.deeplabv3.deeplabv3 import DeepLabV3Model
+from semantic_segmentation.models.deeplabv3.deeplabv3_mcd import DeepLabV3Model_mcd
 
-NetworkWrapperType = Union["DeterministicNetworkWrapper", "AleatoricNetworkWrapper"]
-NetworkType = Union["DeterministicNetwork", "AleatoricNetwork"]
-ModelType = Union["ERFNetModel", "AleatoricERFNetModel", "UNetModel", "AleatoricUNetModel"]
+# TODO: Currently, MCDNetworkWrapper and MCDNetwork are not implemented.
+NetworkWrapperType = Union["DeterministicNetworkWrapper", "AleatoricNetworkWrapper", "MCDNetworkWrapper"]
+NetworkType = Union["DeterministicNetwork", "AleatoricNetwork", "MCDNetwork"]
+ModelType = Union["ERFNetModel", "AleatoricERFNetModel", "UNetModel", "AleatoricUNetModel", "DeepLabV3Model", "DeepLabV3Model_mcd"]
 LossType = Union["CrossEntropyLoss", "NLLLoss", "AleatoricLoss"]
 
 # TODO: Probably, the concept of model should change to "pipeline" or something similar.
 network_wrapper = {
     "deterministic": DeterministicNetworkWrapper,
     "aleatoric": AleatoricNetworkWrapper,
+    "mcd": MCDNetworkWrapper,
 }
 
 networks = {
     "deterministic": DeterministicNetwork,
     "aleatoric": AleatoricNetwork,
+    "mcd": MCDNetwork,
 }
 
 deterministic_models = {
     "erfnet": ERFNetModel,
     "unet": UNetModel,
+    "deeplabv3": DeepLabV3Model,
 }
 
 aleatoric_models = {
     "erfnet": AleatoricERFNetModel,
     "unet": AleatoricUNetModel,
+    "deeplabv3": DeepLabV3Model_mcd,
 }
 
 models_dict = {
@@ -93,6 +99,7 @@ losses = {
     "cross_entropy": CrossEntropyLoss,
     "nll": NLLLoss,
     "aleatoric": AleatoricLoss,
+    # Add new losses here
 }
 
 
