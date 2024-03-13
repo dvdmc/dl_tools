@@ -1,3 +1,4 @@
+from typing import Optional
 import torch
 import torch.nn as nn
 
@@ -7,7 +8,7 @@ class CrossEntropyLoss(nn.Module):
         self,
         reduction: str = "mean",
         ignore_index: int = -100,
-        weight: torch.Tensor = None,
+        weight: Optional[torch.Tensor] = None,
     ):
         super().__init__()
         self.criterion = nn.CrossEntropyLoss(
@@ -35,7 +36,7 @@ class AleatoricLoss(nn.Module):
         self,
         reduction: str = "mean",
         ignore_index: int = -100,
-        weight: torch.Tensor = None,
+        weight: Optional[torch.Tensor] = None,
     ):
         super().__init__()
         self.reduction = reduction
@@ -72,7 +73,7 @@ class NLLLoss(nn.Module):
         self,
         reduction: str = "mean",
         ignore_index: int = -100,
-        weight: torch.Tensor = None,
+        weight: Optional[torch.Tensor] = None,
     ):
         super().__init__()
         self.criterion = nn.NLLLoss(

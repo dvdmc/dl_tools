@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "semantic_segmentation"
+readme="README.md"
+requires-python=">=3.7.0"
+version = "0.1.0"
+dependencies=[
+    "protobuf==4.23.4",
+    "numpy==1.26.2",
+    "pytorch-lightning==2.1.2",
+    "torch==2.1.1",
+    "torchmetrics==1.2.0",
+    "torchvision==0.16.1",
+    "opencv-python==4.8.1.78",
+    "Pillow==9.4.0",
+    "tyro==0.5.18",
+    "seaborn==0.13.0",
+]
+
+[tool.setuptools]
+packages = ["semantic_segmentation"]
+
+# black
+[tool.black]
+line-length = 120

@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import matplotlib
 
@@ -7,9 +7,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
 
+# TODO: Move to models? TOP folder
+# Move to evaluation folder.
 
 def precision_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> float:
     def conf_mat_masked(conf_mat):
         if ignore_index is None:
@@ -40,7 +42,7 @@ def precision_from_conf_matrices(
 
 
 def recall_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> float:
     def conf_mat_masked(conf_mat):
         if ignore_index is None:
@@ -68,7 +70,7 @@ def recall_from_conf_matrices(
 
 
 def f1_score_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> float:
     precision = precision_from_conf_matrices(conf_matrices, ignore_index=ignore_index)
     recall = recall_from_conf_matrices(conf_matrices, ignore_index=ignore_index)
@@ -80,7 +82,7 @@ def f1_score_from_conf_matrices(
 
 
 def per_class_iou_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> torch.Tensor:
     def conf_mat_masked(conf_mat):
         if ignore_index is None:
@@ -109,7 +111,7 @@ def per_class_iou_from_conf_matrices(
 
 
 def weighted_iou_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], weight, ignore_index: int = None
+    conf_matrices: List[torch.Tensor], weight, ignore_index: Optional[int] = None
 ) -> float:
     per_class_iou = per_class_iou_from_conf_matrices(
         conf_matrices, ignore_index=ignore_index
@@ -131,7 +133,7 @@ def weighted_iou_from_conf_matrices(
 
 
 def mean_iou_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> float:
     per_class_iou = per_class_iou_from_conf_matrices(
         conf_matrices, ignore_index=ignore_index
@@ -146,7 +148,7 @@ def mean_iou_from_conf_matrices(
 
 
 def accuracy_from_conf_matrices(
-    conf_matrices: List[torch.Tensor], ignore_index: int = None
+    conf_matrices: List[torch.Tensor], ignore_index: Optional[int] = None
 ) -> float:
     def conf_mat_masked(conf_mat):
         if ignore_index is None:
@@ -166,7 +168,7 @@ def accuracy_from_conf_matrices(
     return (torch.sum(true_predictions) / torch.sum(num_predictions)).item()
 
 
-def total_conf_matrix_from_conf_matrices(
+def aggregate_confusion_matrices(
     conf_matrices: List[torch.Tensor],
 ) -> torch.Tensor:
     total_conf_matrix = torch.sum(torch.stack(conf_matrices), dim=0) / len(
@@ -207,6 +209,9 @@ def compute_calibration_info(
 
 
 def ece_from_calibration_info(calibration_info_list: List, num_bins: int = 20) -> float:
+    """
+        TODO: explain
+    """
     conf_bin = torch.zeros(num_bins + 1)
     acc_bin = torch.zeros(num_bins + 1)
     prop_bin = torch.zeros(num_bins + 1)
@@ -226,9 +231,8 @@ def ece_from_calibration_info(calibration_info_list: List, num_bins: int = 20) -
     ).item()
 
 
-def compute_calibration_plots(outputs: List[Dict], num_bins: int = 20):
+def compute_calibration_plots(calibration_info_list: List[Dict], num_bins: int = 20):
     bin_boundaries = torch.linspace(0, 1, num_bins + 1, dtype=torch.float)
-    calibration_info_list = [tmp["calibration_info"] for tmp in outputs]
     conf_bin = torch.zeros(num_bins + 1)
     acc_bin = torch.zeros(num_bins + 1)
     prop_bin = torch.zeros(num_bins + 1)
