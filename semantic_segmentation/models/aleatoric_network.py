@@ -1,3 +1,9 @@
+"""
+    Pytorch Lightning Bayesian training wrapper from Jan Weyler.
+    The implementation is based on:
+    https://github.com/dmar-bonn/bayesian_erfnet/
+"""
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -10,10 +16,12 @@ from utils import metrics
 
 from semantic_segmentation.models.base_network import BaseNetwork, NetworkWrapper
 
+
 class AleatoricNetwork(BaseNetwork):
     """
-    Defines the interface for a deterministic network.
+    Defines the interface for a aleatoric network.
     """
+
     def __init__(self, model: nn.Module, cfg: dict) -> None:
         super(AleatoricNetwork, self).__init__(model, cfg)
         # TODO: This should come from the outside
@@ -22,14 +30,14 @@ class AleatoricNetwork(BaseNetwork):
         # Used to obtain probabilities from the logits after sampling
         self.softmax = nn.Softmax(dim=1)
         # Used to obtain the standard deviation from the log std
-        self.softplus = nn.Softplus(beta=1)    
+        self.softplus = nn.Softplus(beta=1)
         self.num_mc_aleatoric = self.cfg["train"]["num_mc_aleatoric"]
 
     def forward(self, x):
         """
         Forward pass with aleatoric uncertainty
-        as an additional output. This only returns the logits. 
-        Post processing (e.g., softplus, aleatoric dist. sampling) 
+        as an additional output. This only returns the logits.
+        Post processing (e.g., softplus, aleatoric dist. sampling)
         is done in get_predictions()
         """
         est_seg, est_std = self.model(x)
@@ -44,9 +52,7 @@ class AleatoricNetwork(BaseNetwork):
         Returns:
             torch.Tensor: sampled probabilities
         """
-        sampled_probs = torch.zeros(
-            (self.num_mc_aleatoric, *seg.size()), device=self.device
-        )
+        sampled_probs = torch.zeros((self.num_mc_aleatoric, *seg.size()), device=self.device)
         noise_mean = torch.zeros(seg.size(), device=self.device)
         noise_std = torch.ones(seg.size(), device=self.device)
         dist = torch.distributions.normal.Normal(noise_mean, noise_std)
@@ -57,7 +63,6 @@ class AleatoricNetwork(BaseNetwork):
             sampled_probs[i] = self.softmax(sampled_logits)
         mean_probs = torch.mean(sampled_probs, dim=0)
         return mean_probs
-
 
     @torch.no_grad()
     def get_predictions(self, data):
@@ -77,29 +82,30 @@ class AleatoricNetwork(BaseNetwork):
         """
         self.model.eval()
         est_seg_log, est_std_log = self.forward(data)
-        
+
         est_std = self.softplus(est_std_log) + 10e-8
         mean_probs = self.sample_from_aleatoric_model(est_seg_log, est_std)
 
         _, pred_label = torch.max(mean_probs, dim=1)
 
-        aleatoric_unc = -torch.sum(
-            mean_probs * torch.log(mean_probs + 10e-8), dim=1
-        ) / torch.log(torch.tensor(self.num_classes))
+        aleatoric_unc = -torch.sum(mean_probs * torch.log(mean_probs + 10e-8), dim=1) / torch.log(
+            torch.tensor(self.num_classes)
+        )
 
         return mean_probs, pred_label, aleatoric_unc
 
 
 class AleatoricNetworkWrapper(NetworkWrapper):
     """
-        Network Wrapper to include aleatoric uncertainty as an additional output.
-        - We use get_predictions to get the probabilities. This is not required in traning.
-        - The uncertainty in this case is the ... (entropy...?) and viualized. 
-        TODO: clarify extracted from aleatoric NN.
+    Network Wrapper to include aleatoric uncertainty as an additional output.
+    - We use get_predictions to get the probabilities. This is not required in traning.
+    - The uncertainty in this case is the ... (entropy...?) and viualized.
+    TODO: clarify extracted from aleatoric NN.
     """
+
     def __init__(self, network: AleatoricNetwork, cfg: dict) -> None:
         super(AleatoricNetworkWrapper, self).__init__(network, cfg)
-        self.network = network # For typing purposes
+        self.network = network  # For typing purposes
         self.save_hyperparameters()
         self.vis_interval = self.cfg["train"]["visualization_interval"]
 
@@ -134,9 +140,7 @@ class AleatoricNetworkWrapper(NetworkWrapper):
         confusion_matrix = torchmetrics.functional.confusion_matrix(
             pred_label, true_label, task="multiclass", num_classes=self.network.num_classes, normalize=None
         )
-        calibration_info = metrics.compute_calibration_info(
-            mean_probs, true_label, num_bins=50
-        )
+        calibration_info = metrics.compute_calibration_info(mean_probs, true_label, num_bins=50)
         if batch_idx % self.vis_interval == 0:
             self.visualize_step(batch)
 
@@ -163,9 +167,7 @@ class AleatoricNetworkWrapper(NetworkWrapper):
         confusion_matrix = torchmetrics.functional.confusion_matrix(
             pred_label, true_label, task="multiclass", num_classes=self.network.num_classes, normalize=None
         )
-        calibration_info = metrics.compute_calibration_info(
-            mean_probs, true_label, num_bins=50
-        )
+        calibration_info = metrics.compute_calibration_info(mean_probs, true_label, num_bins=50)
         self.log("test:loss", loss, prog_bar=True)
         outputs = {
             "conf_matrix": confusion_matrix,
@@ -192,7 +194,7 @@ class AleatoricNetworkWrapper(NetworkWrapper):
         probs = final_prob[0].cpu()
         true_label = true_label[0].cpu()
         unc = aleatoric_unc[0].cpu()
-        
+
         self.log_prediction_images(
             img,
             true_label,

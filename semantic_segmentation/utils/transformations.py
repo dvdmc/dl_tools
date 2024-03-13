@@ -1,7 +1,9 @@
-""" Define a set of transformations which can be applied simultaneously to the input image and its corresponding labels.
+""" 
+    Define a set of transformations which can be applied simultaneously to the input image and its corresponding labels.
 
-This is relevant for the task of semantic segmentation since the input image and its label need to be treated in the same way.
+    This is relevant for the task of semantic segmentation since the input image and its label need to be treated in the same way.
 """
+
 import random
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
@@ -24,7 +26,7 @@ class JointTransformation(ABC):
         Args:
           image (torch.Tensor): input image to be transformed.
           label (torch.Tensor): label to be transformed.
-          raw_image (Optional[PILImage], optional): optional because 
+          raw_image (Optional[PILImage], optional): optional because
           it is useful to transform for visualization purposes.
 
         Returns:
@@ -32,13 +34,14 @@ class JointTransformation(ABC):
         """
         raise NotImplementedError
 
+
 def assert_dimensions_are_equal(image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None) -> bool:
     """Check if the dimensions of the input image and its corresponding label are identical.
 
     Args:
         image (torch.Tensor): input image
         label (torch.Tensor): label
-        raw_image (Optional[PILImage], optional): optional because 
+        raw_image (Optional[PILImage], optional): optional because
           it is useful to transform for visualization purposes.
 
     Returns:
@@ -50,6 +53,7 @@ def assert_dimensions_are_equal(image: torch.Tensor, label: torch.Tensor, raw_im
     else:
         assert image.shape[1] == label.shape[1], "Dimensions of all input should be identical."
         assert image.shape[2] == label.shape[2], "Dimensions of all input should be identical."
+
 
 class JointCenterCropTransform(JointTransformation):
     """Extract a patch from the image center."""
@@ -69,7 +73,7 @@ class JointCenterCropTransform(JointTransformation):
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[PILImage]]:
         # dimension of each input should be identical
         assert_dimensions_are_equal(image, label, raw_image)
-        
+
         if (self.crop_height is None) or (self.crop_width is None):
             if raw_image is not None:
                 return image, label, raw_image
@@ -241,14 +245,16 @@ class JointResizeTransform(JointTransformation):
 
             if raw_image is not None:
                 raw_image_resized = TF.resize(
-                    raw_image, [self.resized_height, resized_width], interpolation=TF.InterpolationMode.BILINEAR, antialias=True
+                    raw_image,
+                    [self.resized_height, resized_width],
+                    interpolation=TF.InterpolationMode.BILINEAR,
+                    antialias=True,
                 )
                 del resized_width
                 return image_resized, label_resized, raw_image_resized
             else:
-                del resized_width # TODO: Why?
+                del resized_width  # TODO: Why?
                 return image_resized, label_resized
-            
 
         # 2nd case - user provides width but not height
         if (self.resized_width is not None) and (self.resized_height is None):
@@ -267,11 +273,14 @@ class JointResizeTransform(JointTransformation):
             )
             if raw_image is not None:
                 raw_image_resized = TF.resize(
-                    raw_image, [resized_height, self.resized_width], interpolation=TF.InterpolationMode.BILINEAR, antialias=True
+                    raw_image,
+                    [resized_height, self.resized_width],
+                    interpolation=TF.InterpolationMode.BILINEAR,
+                    antialias=True,
                 )
                 del resized_height
                 return image_resized, label_resized, raw_image_resized
-            else
+            else:
                 del resized_height
                 return image_resized, label_resized
         # 3rd case - user provides width and height
@@ -287,7 +296,12 @@ class JointResizeTransform(JointTransformation):
         label_resized = TF.resize(label, [self.resized_height, self.resized_width], interpolation=TF.InterpolationMode.NEAREST, antialias=True)  # type: ignore
 
         if raw_image is not None:
-            raw_image_resized = TF.resize(raw_image, [self.resized_height, self.resized_width], interpolation=TF.InterpolationMode.BILINEAR, antialias=True)
+            raw_image_resized = TF.resize(
+                raw_image,
+                [self.resized_height, self.resized_width],
+                interpolation=TF.InterpolationMode.BILINEAR,
+                antialias=True,
+            )
             return image_resized, label_resized, raw_image_resized
         else:
             return image_resized, label_resized
@@ -331,7 +345,8 @@ class JointRandomRotationTransform(JointTransformation):
 
 class JointRandomColorJitterTransform(JointTransformation):
     """Apply colour jitter to a given image.
-        Ignores the label."""
+    Ignores the label."""
+
     def __init__(
         self,
         brightness: float = 0.0,
@@ -360,6 +375,7 @@ class JointRandomColorJitterTransform(JointTransformation):
             return image_jitted, label, raw_image_jitted
         else:
             return image_jitted, label
+
 
 # TODO: Move this somewhere else? Config file or here?
 def get_transformations(cfg, stage: str) -> List[JointTransformation]:

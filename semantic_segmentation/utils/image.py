@@ -1,5 +1,6 @@
 """ Auxiliary functions to modify images.
 """
+
 from typing import Optional
 
 import torch
@@ -105,5 +106,5 @@ def resize(
         image = torch.squeeze(image)
 
         return image
-    
+
     raise ValueError("Something went wrong. Please check your input parameters.")

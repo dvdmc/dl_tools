@@ -1,12 +1,15 @@
 """
-Code for the NetworkWrapper class.
-This class configures the model and pipeline stages.
-This is: training, validation, testing, visualization and logging.
-It obtains the information from the config file.
-Common logging methods that apply to all methods are included here.
-When a method varies the pipeline execution (e.g. mc samples, ensembles, etc.)
-it is moved to a subclass that modifies the corresponding functions
+    Code for the NetworkWrapper class.
+    This class configures the model and pipeline stages.
+    This is: training, validation, testing, visualization and logging.
+    It obtains the information from the config file.
+    Common logging methods that apply to all methods are included here.
+    When a method varies the pipeline execution (e.g. mc samples, ensembles, etc.)
+    it is moved to a subclass that modifies the corresponding functions.
+    The code is based on: https://github.com/dmar-bonn/bayesian_erfnet/
+    and discussed with Julius Rückin and Liren Jin.
 """
+
 from __future__ import annotations
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -26,6 +29,7 @@ from semantic_segmentation.utils import metrics
 if TYPE_CHECKING:
     from semantic_segmentation.models import NetworkType
 
+
 class BaseNetwork:
     """
     This class defines the basic interface to be declared for every network to be used
@@ -33,6 +37,7 @@ class BaseNetwork:
     processing steps that depend on the inference method.
     This class only receives cfg as an argument. Implementations should add model
     """
+
     def __init__(self, model: nn.Module, cfg: dict):
         self.cfg = cfg
         self.num_classes = self.cfg["model"]["num_classes"]
@@ -62,7 +67,7 @@ class BaseNetwork:
 
         Implementation:
             Every subclass that implements this method is intended to be used in evalution.
-            Therefore, adding self.model.eval() and @torch.no_grad() as a decorator is 
+            Therefore, adding self.model.eval() and @torch.no_grad() as a decorator is
             required in most cases. This function should use self.forward() to get the logits.
         """
         raise NotImplementedError
@@ -72,17 +77,18 @@ class NetworkWrapper(LightningModule):
     """
     Base class for the network wrapper. It implements common methods for all the network types.
     """
-    def __init__(self, network: NetworkType, cfg: dict): #TODO (later): define a cfg dataclass ?
+
+    def __init__(self, network: NetworkType, cfg: dict):  # TODO (later): define a cfg dataclass ?
         super(NetworkWrapper, self).__init__()
         self.cfg = cfg
         self.network = network
-        
-        self.model = self.network.model # Lightning requires the model to be an attribute
+
+        self.model = self.network.model  # Lightning requires the model to be an attribute
         self.ignore_index = IGNORE_INDEX[cfg["data"]["name"]]
         self.loss_fn = get_loss_fn(cfg)
         self.vis_step = 0
 
-        # The following is supposed to be stored in val/tet steps 
+        # The following is supposed to be stored in val/tet steps
         # fn respectively in subclasses
         self.val_step_outputs = []
         self.test_step_outputs = []
@@ -94,12 +100,10 @@ class NetworkWrapper(LightningModule):
         TODO (later): do we add more optimizers?
         """
         optimizer = torch.optim.AdamW(
-            self.parameters(),
-            lr=self.cfg["train"]["lr"],
-            weight_decay=self.cfg["train"]["weight_decay"]
+            self.parameters(), lr=self.cfg["train"]["lr"], weight_decay=self.cfg["train"]["weight_decay"]
         )
         return optimizer
-    
+
     def training_step(self):
         raise NotImplementedError
 
@@ -117,7 +121,7 @@ class NetworkWrapper(LightningModule):
         Log the confusion matrix and calibration info at the end of the validation epoch.
         WARN: This method is on_validation_epoch_end in new Lighting versions. Refactoring requires
               storing outputs manually as an atribute in validation_step.
-        WARN: This method asumes that the children will have "conf_matrix" and "calibration_info" 
+        WARN: This method asumes that the children will have "conf_matrix" and "calibration_info"
               in their outputs.
         """
         outputs = self.val_step_outputs
@@ -132,12 +136,9 @@ class NetworkWrapper(LightningModule):
         self.log_calibration_plots(calibration_info_list)
 
         fig_ = metrics.compute_calibration_plots(calibration_info_list, num_bins=50)
-        self.logger.experiment.add_figure(
-            "UncertaintyStats/Calibration", fig_, self.current_epoch
-        )
+        self.logger.experiment.add_figure("UncertaintyStats/Calibration", fig_, self.current_epoch)
 
         self.vis_step = 0
-
 
     def test_epoch_end(self):
         """
@@ -145,7 +146,7 @@ class NetworkWrapper(LightningModule):
         We track... TODO: what?
         WARN: This method is on_validation_epoch_end in new Lighting versions. Refactoring requires
               storing outputs manually as an atribute in validation_step.
-        WARN: This method asumes that the children will have "conf_matrix" and "calibration_info" 
+        WARN: This method asumes that the children will have "conf_matrix" and "calibration_info"
               in their outputs.
         """
         outputs = self.test_step_outputs
@@ -174,9 +175,7 @@ class NetworkWrapper(LightningModule):
             stage (str): Stage of the pipeline.
             calibration_info_list (list): List of calibration info.
         """
-        miou = metrics.mean_iou_from_conf_matrices(
-            conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]]
-        )
+        miou = metrics.mean_iou_from_conf_matrices(conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]])
         per_class_iou = metrics.per_class_iou_from_conf_matrices(
             conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]]
         )
@@ -186,9 +185,7 @@ class NetworkWrapper(LightningModule):
         precision = metrics.precision_from_conf_matrices(
             conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]]
         )
-        recall = metrics.recall_from_conf_matrices(
-            conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]]
-        )
+        recall = metrics.recall_from_conf_matrices(conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]])
         f1_score = metrics.f1_score_from_conf_matrices(
             conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]]
         )
@@ -214,7 +211,7 @@ class NetworkWrapper(LightningModule):
             f"{stage}/ECE": ece,
         }
 
-    def log_confusion_matrix(self, conf_matrices: List[torch.Tensor], stage: str="Test"):  # not refactored
+    def log_confusion_matrix(self, conf_matrices: List[torch.Tensor], stage: str = "Test"):  # not refactored
         """
         Log the confusion matrix as a figure in seaborn because it looks better.
         """
@@ -229,9 +226,7 @@ class NetworkWrapper(LightningModule):
         ax.set_xlabel("Prediction")
         ax.set_ylabel("Ground Truth")
 
-        self.logger.experiment.add_figure(
-            f"ConfusionMatrix/{stage}", ax.get_figure(), self.current_epoch
-        )
+        self.logger.experiment.add_figure(f"ConfusionMatrix/{stage}", ax.get_figure(), self.current_epoch)
 
         plt.close()
         plt.clf()
@@ -245,9 +240,7 @@ class NetworkWrapper(LightningModule):
             calibration_info_list (list): List of calibration info. TODO: Improve definition
         """
         fig_ = metrics.compute_calibration_plots(calibration_info_list, num_bins=50)
-        self.logger.experiment.add_figure(
-            "UncertaintyStats/Calibration", fig_, self.current_epoch
-        )
+        self.logger.experiment.add_figure("UncertaintyStats/Calibration", fig_, self.current_epoch)
 
     def log_gradient_norms(self):  # not refactored
         """
@@ -263,7 +256,7 @@ class NetworkWrapper(LightningModule):
 
         self.log(f"LossStats/GradientNorm", torch.tensor(total_grad_norm))
 
-    def log_prediction_images( # not refactored TODO: Move plot predictions to some utils?
+    def log_prediction_images(  # not refactored TODO: Move plot predictions to some utils?
         self,
         image: torch.Tensor,
         true_label: torch.Tensor,
@@ -287,9 +280,7 @@ class NetworkWrapper(LightningModule):
             uncertainty (torch.Tensor): Uncertainty
         """
         # Plot the input image TODO: check the squeezes in this method
-        self.logger.experiment.add_image(
-            f"{stage}/Input image", image, step, dataformats="CHW"
-        )
+        self.logger.experiment.add_image(f"{stage}/Input image", image, step, dataformats="CHW")
 
         # Plot the output image as a label mask TODO: toOneHot transforms to detach.cpu.numpy(). fix.
         imap_pred = utils.toOneHot(argmax_pred, self.cfg["data"]["name"])
@@ -309,17 +300,15 @@ class NetworkWrapper(LightningModule):
             dataformats="HWC",
         )
 
-        # Plot the error image with the cross entropy loss 
+        # Plot the error image with the cross entropy loss
         # This needs the images to be in batch format
         # TODO: Change to configured loss?
         prob_pred_batch = prob_pred.unsqueeze(0)
         true_label_batch = true_label.unsqueeze(0)
 
         cross_entropy_fn = CrossEntropyLoss(reduction="none")
-        sample_error_img = cross_entropy_fn(
-            prob_pred_batch, true_label_batch
-        ).squeeze()
-        sizes = imap_pred.shape # TODO: what is this for?
+        sample_error_img = cross_entropy_fn(prob_pred_batch, true_label_batch).squeeze()
+        sizes = imap_pred.shape  # TODO: what is this for?
         px = 1 / plt.rcParams["figure.dpi"]
         fig = plt.figure(figsize=(px * sizes[1], px * sizes[0]))
         ax = plt.Axes(fig, (0.0, 0.0, 1.0, 1.0))

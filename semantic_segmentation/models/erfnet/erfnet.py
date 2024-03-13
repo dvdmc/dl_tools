@@ -2,6 +2,7 @@
     Code for the ERFNet model.
     Extracted from: https://github.com/Eromera/erfnet_pytorch/blob/master/train/erfnet.py
 """
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,12 +17,11 @@ class DownsamplerBlock(nn.Module):
         noutput (int): Number of output channels
 
     """
+
     def __init__(self, ninput: int, noutput: int) -> None:
         super().__init__()
 
-        self.conv = nn.Conv2d(
-            ninput, noutput - ninput, (3, 3), stride=2, padding=1, bias=True
-        )
+        self.conv = nn.Conv2d(ninput, noutput - ninput, (3, 3), stride=2, padding=1, bias=True)
         self.pool = nn.MaxPool2d(2, stride=2)
         self.bn = nn.BatchNorm2d(noutput, eps=1e-3)
 
@@ -41,16 +41,13 @@ class non_bottleneck_1d(nn.Module):
         dilated (int): Dilation factor
 
     """
-    def __init__(self, chann: int, dropprob: float, dilated: int) ->None:
+
+    def __init__(self, chann: int, dropprob: float, dilated: int) -> None:
         super().__init__()
 
-        self.conv3x1_1 = nn.Conv2d(
-            chann, chann, (3, 1), stride=1, padding=(1, 0), bias=True
-        )
+        self.conv3x1_1 = nn.Conv2d(chann, chann, (3, 1), stride=1, padding=(1, 0), bias=True)
 
-        self.conv1x3_1 = nn.Conv2d(
-            chann, chann, (1, 3), stride=1, padding=(0, 1), bias=True
-        )
+        self.conv1x3_1 = nn.Conv2d(chann, chann, (1, 3), stride=1, padding=(0, 1), bias=True)
 
         self.bn1 = nn.BatchNorm2d(chann, eps=1e-03)
 
@@ -104,6 +101,7 @@ class ERFNetEncoder(nn.Module):
         num_classes (int): Number of classes
 
     """
+
     def __init__(self, num_classes: int) -> None:
         super().__init__()
         self.initial_block = DownsamplerBlock(3, 16)
@@ -141,11 +139,10 @@ class UpsamplerBlock(nn.Module):
         noutput (int): Number of output channels
 
     """
+
     def __init__(self, ninput: int, noutput: int) -> None:
         super().__init__()
-        self.conv = nn.ConvTranspose2d(
-            ninput, noutput, 3, stride=2, padding=1, output_padding=1, bias=True
-        )
+        self.conv = nn.ConvTranspose2d(ninput, noutput, 3, stride=2, padding=1, output_padding=1, bias=True)
         self.bn = nn.BatchNorm2d(noutput, eps=1e-3)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
@@ -162,6 +159,7 @@ class ERFNetDecoder(nn.Module):
         num_classes (int): Number of classes
 
     """
+
     def __init__(self, num_classes: int) -> None:
         super().__init__()
 
@@ -175,9 +173,7 @@ class ERFNetDecoder(nn.Module):
         self.layers.append(non_bottleneck_1d(16, 0, 1))
         self.layers.append(non_bottleneck_1d(16, 0, 1))
 
-        self.output_conv = nn.ConvTranspose2d(
-            16, num_classes, 2, stride=2, padding=0, output_padding=0, bias=True
-        )
+        self.output_conv = nn.ConvTranspose2d(16, num_classes, 2, stride=2, padding=0, output_padding=0, bias=True)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         output = input
@@ -200,6 +196,7 @@ class ERFNetModel(nn.Module):
     Returns:
         nn.Module: ERFNet
     """
+
     def __init__(self, num_classes):
         super().__init__()
 

@@ -2,6 +2,7 @@
     Code for the UNet model.
     Extracted from: https://github.com/usuyama/pytorch-unet
 """
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -34,6 +35,7 @@ class UNetModel(nn.Module):
         num_classes (int): Number of classes
 
     """
+
     def __init__(self, num_classes: int) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -80,4 +82,3 @@ class UNetModel(nn.Module):
         output = self.conv_last(x)
 
         return output
-

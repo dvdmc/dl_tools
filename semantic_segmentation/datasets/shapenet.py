@@ -44,9 +44,7 @@ class ShapenetDataModule(LightningDataModule):
         batch_size = self.cfg["data"]["batch_size"]
         n_workers = self.cfg["data"]["num_workers"]
 
-        loader = DataLoader(
-            self._train, batch_size=batch_size, shuffle=shuffle, num_workers=n_workers
-        )
+        loader = DataLoader(self._train, batch_size=batch_size, shuffle=shuffle, num_workers=n_workers)
 
         return loader
 
@@ -54,9 +52,7 @@ class ShapenetDataModule(LightningDataModule):
         batch_size = self.cfg["data"]["batch_size"]
         n_workers = self.cfg["data"]["num_workers"]
 
-        loader = DataLoader(
-            self._val, batch_size=batch_size, num_workers=n_workers, shuffle=True
-        )
+        loader = DataLoader(self._val, batch_size=batch_size, num_workers=n_workers, shuffle=True)
 
         return loader
 
@@ -64,9 +60,7 @@ class ShapenetDataModule(LightningDataModule):
         batch_size = self.cfg["data"]["batch_size"]
         n_workers = self.cfg["data"]["num_workers"]
 
-        loader = DataLoader(
-            self._test, batch_size=batch_size, num_workers=n_workers, shuffle=False
-        )
+        loader = DataLoader(self._test, batch_size=batch_size, num_workers=n_workers, shuffle=False)
 
         return loader
 
@@ -81,9 +75,7 @@ class ShapenetDataset(Dataset):
         with open(split_file, "r") as f:
             scene_id_list = [x.strip() for x in f.readlines()]
 
-        scene_path = [
-            os.path.join(data_rootdir, "scene" + scene_id) for scene_id in scene_id_list
-        ]
+        scene_path = [os.path.join(data_rootdir, "scene" + scene_id) for scene_id in scene_id_list]
 
         # Check if scenes exist. Print warning if not.
         for scene in scene_path:
@@ -96,15 +88,11 @@ class ShapenetDataset(Dataset):
             image_path = os.path.join(scene, "images")
             label_path = os.path.join(scene, "semantics")
             scene_images = [
-                x
-                for x in glob.glob(os.path.join(image_path, "*"))
-                if (x.endswith(".jpg") or x.endswith(".png"))
+                x for x in glob.glob(os.path.join(image_path, "*")) if (x.endswith(".jpg") or x.endswith(".png"))
             ]
             scene_images.sort()
             scene_labels = [
-                x
-                for x in glob.glob(os.path.join(label_path, "*"))
-                if (x.endswith(".jpg") or x.endswith(".png"))
+                x for x in glob.glob(os.path.join(label_path, "*")) if (x.endswith(".jpg") or x.endswith(".png"))
             ]
             scene_images.sort()
             scene_labels.sort()
@@ -146,9 +134,7 @@ class ShapenetDataset(Dataset):
         assert dims[0] == 3, "label must have 3 channels!!!"
 
         shapenet_labels = LABELS["shapenet"]
-        remapped_label = (
-            np.ones((dims[1], dims[2])) * shapenet_labels["background"]["id"]
-        )
+        remapped_label = np.ones((dims[1], dims[2])) * shapenet_labels["background"]["id"]
 
         for label_key, label_info in shapenet_labels.items():
             if label_key == "background":

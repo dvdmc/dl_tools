@@ -11,17 +11,10 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-##############################################################################################
-#                                                                                            #
-#  Pytorch Lightning ERFNet training wrapper from Jan Weyler. Our Bayesian-ERFNet            #
-#  training builds upon Jan's ERFNet implementation.                                         #
-#                                                                                            #
-##############################################################################################
-
 
 def main(
     config: str = join(dirname(abspath(__file__))),
-    weights: Optional[str] = None, # TODO: add possibility to load weights
+    weights: Optional[str] = None,  # TODO: add possibility to load weights
     checkpoint: Optional[str] = None,
 ):
     """
@@ -49,15 +42,12 @@ def main(
         save_last=True,
     )
 
-    tb_logger = pl_loggers.TensorBoardLogger(
-        f"experiments/{cfg['experiment']['id']}", default_hp_metric=False
-    )
+    tb_logger = pl_loggers.TensorBoardLogger(f"experiments/{cfg['experiment']['id']}", default_hp_metric=False)
 
     # Setup trainer
     trainer = Trainer(
         devices=cfg["train"]["n_gpus"],
         logger=tb_logger,
-        
         max_epochs=cfg["train"]["max_epoch"],
         callbacks=[lr_monitor, checkpoint_saver],
     )

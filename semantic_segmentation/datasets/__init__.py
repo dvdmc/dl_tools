@@ -8,6 +8,7 @@
 
 from datasets.shapenet import ShapenetDataModule
 
+
 def get_data_module(cfg):
     name = cfg["data"]["name"]
     if name == "shapenet":

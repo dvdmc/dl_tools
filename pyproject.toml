@@ -9,7 +9,7 @@ requires-python=">=3.7.0"
 version = "0.1.0"
 dependencies=[
     "protobuf==4.23.4",
-    "numpy==1.26.2",
+    "numpy==1.24.4",
     "pytorch-lightning==2.1.2",
     "torch==2.1.1",
     "torchmetrics==1.2.0",

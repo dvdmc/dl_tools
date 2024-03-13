@@ -21,9 +21,7 @@ def main(checkpoint: str):
     data = get_data_module(cfg)
     model = get_model(cfg)
 
-    tb_logger = pl_loggers.TensorBoardLogger(
-        "experiments/" + cfg["experiment"]["id"], default_hp_metric=False
-    )
+    tb_logger = pl_loggers.TensorBoardLogger("experiments/" + cfg["experiment"]["id"], default_hp_metric=False)
 
     # Setup trainer
     trainer = Trainer(logger=tb_logger, devices=cfg["train"]["n_gpus"])

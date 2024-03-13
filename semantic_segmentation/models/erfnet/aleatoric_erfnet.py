@@ -3,13 +3,16 @@
     An additional channel in the output for estimating
     the aleatoric uncertainty as a standard deviation.
     From: https://proceedings.neurips.cc/paper_files/paper/2017/file/2650d6089a6d640c5e85b2b88265dc2b-Paper.pdf
+    Bayesian-ERFNet from Jan Weyler.
 """
+
 from typing import Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from semantic_segmentation.models.erfnet.erfnet import UpsamplerBlock, non_bottleneck_1d, ERFNetEncoder
+
 
 class ERFNetAleatoricDecoder(nn.Module):
     """
@@ -19,6 +22,7 @@ class ERFNetAleatoricDecoder(nn.Module):
         num_classes (int): Number of classes
 
     """
+
     def __init__(self, num_classes: int) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -32,14 +36,11 @@ class ERFNetAleatoricDecoder(nn.Module):
         self.layers.append(non_bottleneck_1d(16, 0, 1))
         self.layers.append(non_bottleneck_1d(16, 0, 1))
 
-        self.output_conv = nn.ConvTranspose2d(
-            16, num_classes + 1, 2, stride=2, padding=0, output_padding=0, bias=True
-        )
-
+        self.output_conv = nn.ConvTranspose2d(16, num_classes + 1, 2, stride=2, padding=0, output_padding=0, bias=True)
 
     def forward(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-            Outputs a tuple of (segmentation, standard deviation)
+        Outputs a tuple of (segmentation, standard deviation)
         """
         output = input
 
@@ -54,16 +55,17 @@ class ERFNetAleatoricDecoder(nn.Module):
 
 class AleatoricERFNetModel(nn.Module):
     """
-        Aleatoric ERFNet
-        Adds one channel to the output to estimate
-        aleatoric uncertainty
+    Aleatoric ERFNet
+    Adds one channel to the output to estimate
+    aleatoric uncertainty
 
-        Args:
-            num_classes (int): Number of classes
+    Args:
+        num_classes (int): Number of classes
 
-        Returns:
-            nn.Module: ERFNet
+    Returns:
+        nn.Module: ERFNet
     """
+
     def __init__(self, num_classes):
         super().__init__()
 

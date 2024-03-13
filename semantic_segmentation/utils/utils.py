@@ -6,6 +6,7 @@ from torch import nn
 from torchvision import transforms
 from semantic_segmentation.constants import LABELS, THEMES
 
+
 def imap2rgb(imap, channel_order, theme):
     """converts an iMap label image into a RGB Color label image,
     following label colors/ids stated in the "labels" dict.
@@ -33,6 +34,7 @@ def imap2rgb(imap, channel_order, theme):
     if channel_order == "chw":
         rgb = np.moveaxis(rgb, -1, 0)  # convert hwc to chw
     return rgb
+
 
 # TODO: Fix this
 def toOneHot(tensor, dataset_name):

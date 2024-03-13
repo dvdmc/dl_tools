@@ -4,12 +4,14 @@
     the aleatoric uncertainty as a standard deviation.
     From: https://proceedings.neurips.cc/paper_files/paper/2017/file/2650d6089a6d640c5e85b2b88265dc2b-Paper.pdf
 """
+
 from typing import Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from semantic_segmentation.models.unet.unet import double_conv
+
 
 class AleatoricUNetModel(nn.Module):
     """
@@ -19,6 +21,7 @@ class AleatoricUNetModel(nn.Module):
         num_classes (int): Number of classes
 
     """
+
     def __init__(self, num_classes: int) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -39,8 +42,8 @@ class AleatoricUNetModel(nn.Module):
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-            Outputs a tuple of (segmentation, standard deviation)
-            TODO (later): can be combined ith UNet to simplify
+        Outputs a tuple of (segmentation, standard deviation)
+        TODO (later): can be combined ith UNet to simplify
         """
         conv1 = self.dconv_down1(x)
         x = self.maxpool(conv1)

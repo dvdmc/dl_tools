@@ -48,7 +48,30 @@ For people who want to make changes to your project, it's helpful to have some d
 You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
 
 ## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+
+This repository is based on the [bayesian_erfnet]( https://github.com/dmar-bonn/bayesian_erfnet/) repository and discussions with Julius Rückin and Liren Jin.
+Specific model atribution are listed here.
+
+- Bayesian ERFNet is based on Jan Weyler's implemention and published in:
+ ```
+ @article{ruckin2023informativeframework,
+  title={{An Informative Path Planning Framework for Active Learning in UAV-based Semantic Mapping}},
+  author={R{\"u}ckin, Julius and Magistri, Federico and Stachniss, Cyrill and Popovi{\'c}, Marija},
+  journal={arXiv preprint arXiv:2302.03347},
+  year={2023},
+}
+ ```
+
+- Evidential DL losses implementation is taken from [bayesian_erfnet]( https://github.com/dmar-bonn/bayesian_erfnet/), which is a reimplementation of the method published in:
+```
+@article{sensoy2018evidential,
+  title={Evidential deep learning to quantify classification uncertainty},
+  author={Sensoy, Murat and Kaplan, Lance and Kandemir, Melih},
+  journal={Advances in neural information processing systems},
+  volume={31},
+  year={2018}
+}
+```
 
 ## License
 For open source projects, say how it is licensed.
