@@ -264,7 +264,7 @@ class NetworkWrapper(LightningModule):
         prob_pred: torch.Tensor,
         stage: str = "Test",
         step: int = 0,
-        uncertainty: Optional[torch.Tensor] = None,
+        uncertainties: Optional[List[torch.Tensor]] = None,
     ):
         """
         Log prediction images.
@@ -277,7 +277,7 @@ class NetworkWrapper(LightningModule):
             prob_pred (torch.Tensor): Predicted probabilities
             stage (str): Stage of the pipeline
             step (int): Step of the pipeline
-            uncertainty (torch.Tensor): Uncertainty
+            uncertainties (list): List of uncertainties to allow aleatoric, epistemic, entropy...
         """
         # Plot the input image TODO: check the squeezes in this method
         self.logger.experiment.add_image(f"{stage}/Input image", image, step, dataformats="CHW")
@@ -321,13 +321,17 @@ class NetworkWrapper(LightningModule):
         plt.clf()
 
         # Uncertainty
-        if uncertainty is not None:
-            unc_np = uncertainty.numpy()
-            fig = plt.figure(figsize=(px * sizes[1], px * sizes[0]))
-            ax = plt.Axes(fig, (0.0, 0.0, 1.0, 1.0))
-            ax.set_axis_off()
-            ax.imshow(unc_np, cmap="plasma")
-            fig.add_axes(ax)
-            self.logger.experiment.add_figure(f"{stage}/Uncertainty", fig, step)
-            plt.cla()
-            plt.clf()
+        if uncertainties is not None:
+            for idx, uncertainty in enumerate(uncertainties):
+                self.log_uncertainty_image(uncertainty, sizes, px, step, stage, idx)
+           
+    def log_uncertainty_image(self, uncertainty: torch.Tensor, sizes: Tuple[int, int], px: float, step: int, stage: str, idx: int):
+        unc_np = uncertainty.numpy()
+        fig = plt.figure(figsize=(px * sizes[1], px * sizes[0]))
+        ax = plt.Axes(fig, (0.0, 0.0, 1.0, 1.0))
+        ax.set_axis_off()
+        ax.imshow(unc_np, cmap="plasma")
+        fig.add_axes(ax)
+        self.logger.experiment.add_figure(f"{stage}/Uncertainty", fig, step)
+        plt.cla()
+        plt.clf()

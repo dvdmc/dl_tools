@@ -3,8 +3,8 @@ experiment:
 
 ##Data
 data:
-    name: 'shapenet'
-    path_to_dataset: '/media/david/dataset/shapenet/shapenet_test'
+    name: 'pascal_voc'
+    path_to_dataset: '/media/david/datasets/VOC2012'
     batch_size: 8
     train_shuffle: true
     num_workers: 0
@@ -32,29 +32,29 @@ train:
         # random_crop:
         #   height:
         #   width: 200
-        # resize:
-        #   height:
-        #   width: 344
-        #   keep_aspect_ratio: true
+        resize:
+          height: 512
+          width: 512
+          keep_aspect_ratio: true
 
 val:
     transformations:
-        # resize:
-        #   height:
-        #   width: 344
-        #   keep_aspect_ratio: true
+        resize:
+          height: 512
+          width: 512
+          keep_aspect_ratio: true
 
 test:
     transformations:
-        # resize:
-        #   height:
-        #   width: 344
-        #   keep_aspect_ratio: true
+        resize:
+          height: 512
+          width: 512
+          keep_aspect_ratio: true
 
 ##Network
 model:
     type: 'deterministic' # network, aleatoric_network
-    name: "unet" # erfnet, unet
+    name: "deeplabv3" # erfnet, unet, deeplabv3
     num_classes: 7
     loss: 'xentropy' # xentropy, nll
 

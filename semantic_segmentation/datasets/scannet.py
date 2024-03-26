@@ -11,7 +11,7 @@ from torchvision import transforms
 import glob
 
 
-class ShapenetDataModule(LightningDataModule):
+class ScanNetDataModule(LightningDataModule):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
@@ -21,19 +21,19 @@ class ShapenetDataModule(LightningDataModule):
 
         # Assign datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            self._train = ShapenetDataset(
+            self._train = ScanNetDataset(
                 path_to_dataset,
                 "train",
                 transformations=get_transformations(self.cfg, "train"),
             )
-            self._val = ShapenetDataset(
+            self._val = ScanNetDataset(
                 path_to_dataset,
                 "val",
                 transformations=get_transformations(self.cfg, "val"),
             )
 
         if stage == "test":
-            self._test = ShapenetDataset(
+            self._test = ScanNetDataset(
                 path_to_dataset,
                 "test",
                 transformations=get_transformations(self.cfg, "test"),
@@ -65,13 +65,13 @@ class ShapenetDataModule(LightningDataModule):
         return loader
 
 
-class ShapenetDataset(Dataset):
+class ScanNetDataset(Dataset):
     def __init__(self, data_rootdir, mode, transformations):
         super().__init__()
 
-        assert os.path.exists(data_rootdir)
+        assert os.path.exists(data_rootdir), "Error: data_rootdir is not found"
         split_file = os.path.join(data_rootdir, f"{mode}.lst")
-        assert os.path.exists(split_file)
+        assert os.path.exists(split_file), f"Error: {split_file} is not found"
         with open(split_file, "r") as f:
             scene_id_list = [x.strip() for x in f.readlines()]
 
@@ -103,13 +103,10 @@ class ShapenetDataset(Dataset):
         self.transformations = transformations
 
     def __getitem__(self, idx):
-        path_to_current_img = self.image_files[idx]
-        img_pil = Image.open(path_to_current_img)
+        img_pil = Image.open(self.image_files[idx])
+        label = self.get_label(self.label_files[idx])
+
         img = self.img_to_tensor(img_pil)
-
-        path_to_current_label = self.label_files[idx]
-        label = self.get_label(path_to_current_label)
-
         # apply a set of transformations to the raw_image, image and label
         for transformer in self.transformations:
             img_pil, img, label = transformer(img_pil, img, label)
@@ -133,10 +130,10 @@ class ShapenetDataset(Dataset):
         assert len(dims) == 3, "wrong matrix dimension!!!"
         assert dims[0] == 3, "label must have 3 channels!!!"
 
-        shapenet_labels = LABELS["shapenet"]
-        remapped_label = np.ones((dims[1], dims[2])) * shapenet_labels["background"]["id"]
+        scannet_labels = LABELS["scannet"]
+        remapped_label = np.ones((dims[1], dims[2])) * scannet_labels["background"]["id"]
 
-        for label_key, label_info in shapenet_labels.items():
+        for label_key, label_info in scannet_labels.items():
             if label_key == "background":
                 continue
 

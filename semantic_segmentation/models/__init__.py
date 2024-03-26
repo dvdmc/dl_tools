@@ -51,6 +51,7 @@ def get_loss_fn(cfg) -> torch.nn.Module:
 
 from semantic_segmentation.models.deterministic_network import DeterministicNetwork, DeterministicNetworkWrapper
 from semantic_segmentation.models.aleatoric_network import AleatoricNetwork, AleatoricNetworkWrapper
+from semantic_segmentation.models.mcd_network import MCDNetwork, MCDNetworkWrapper
 from semantic_segmentation.models.erfnet.erfnet import ERFNetModel
 from semantic_segmentation.models.erfnet.aleatoric_erfnet import AleatoricERFNetModel
 from semantic_segmentation.models.unet.unet import UNetModel

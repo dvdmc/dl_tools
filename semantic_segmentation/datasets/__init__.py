@@ -6,12 +6,15 @@
     TODO: Maybe here can be the bridges
 """
 
-from datasets.shapenet import ShapenetDataModule
-
-
 def get_data_module(cfg):
     name = cfg["data"]["name"]
     if name == "shapenet":
+        from datasets.shapenet import ShapenetDataModule
+        
         return ShapenetDataModule(cfg)
+    elif name == "pascal_voc":
+        from datasets.voc_pascal import PascalVOCDataModule
+
+        return PascalVOCDataModule(cfg)
     else:
         raise ValueError(f"Dataset '{name}' not found!")

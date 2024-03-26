@@ -233,3 +233,5 @@ dmypy.json
 
 # Results
 results/
+
+*_env*

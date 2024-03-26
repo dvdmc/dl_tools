@@ -5,7 +5,7 @@ class Losses:
     ALEATORIC = "aleatoric"
 
 
-IGNORE_INDEX = {"cityscapes": 19, "potsdam": 0, "flightmare": 9, "shapenet": None}
+IGNORE_INDEX = {"cityscapes": 19, "potsdam": 0, "flightmare": 9, "shapenet": None, "pascal_voc": 0}
 
 
 LABELS = {
@@ -62,8 +62,31 @@ LABELS = {
         "camera": {"color": (0, 102, 0), "id": 6},
         # "birdhouse": {"color": (255, 153, 204), "id": 7},
     },
-}
+    "pascal": {
+        "background": {"color": (0, 0, 0), "id": 0},
+        "aeroplane": {"color": (128, 0, 0), "id": 1},
+        "bicycle": {"color": (0, 128, 0), "id": 2},
+        "bird": {"color": (128, 128, 0), "id": 3},
+        "boat": {"color": (0, 0, 128), "id": 4},
+        "bottle": {"color": (128, 0, 128), "id": 5},
+        "bus": {"color": (0, 128, 128), "id": 6},
+        "car": {"color": (128, 128, 128), "id": 7},
+        "cat": {"color": (64, 0, 0), "id": 8},
+        "chair": {"color": (192, 0, 0), "id": 9},
+        "cow": {"color": (64, 128, 0), "id": 10},
+        "diningtable": {"color": (192, 128, 0), "id": 11},
+        "dog": {"color": (64, 0, 128), "id": 12},
+        "horse": {"color": (192, 0, 128), "id": 13},
+        "motorbike": {"color": (64, 128, 128), "id": 14},
+        "person": {"color": (192, 128, 128), "id": 15},
+        "pottedplant": {"color": (0, 64, 0), "id": 16},
+        "sheep": {"color": (128, 64, 0), "id": 17},
+        "sofa": {"color": (0, 192, 0), "id": 18},
+        "train": {"color": (128, 192, 0), "id": 19},
+        "tvmonitor": {"color": (0, 64, 128), "id": 20},
+    },
 
+}
 
 THEMES = {
     "cityscapes": "cityscapes",
