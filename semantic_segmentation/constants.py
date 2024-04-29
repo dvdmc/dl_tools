@@ -5,10 +5,53 @@ class Losses:
     ALEATORIC = "aleatoric"
 
 
-IGNORE_INDEX = {"cityscapes": 19, "potsdam": 0, "flightmare": 9, "shapenet": None}
+IGNORE_INDEX = {"cityscapes": 19, "potsdam": 0, "flightmare": 9, "shapenet": None, "scannet": 0, 'voc12': None}
 
 
 LABELS = {
+    "scannet": {
+        "background": {"color": (0, 0, 0), "id": 0},
+        "wall": {"color": (92, 179, 102), "id": 1},
+        "floor": {"color": (71, 106, 14), "id": 2},
+        "cabinet": {"color": (102, 20, 188), "id": 3},
+        "bed": {"color": (214, 210, 121), "id": 4},
+        "chair": {"color": (87, 202, 74), "id": 5},
+        "sofa": {"color": (103, 99, 116), "id": 6},
+        "table": {"color": (149, 130, 151), "id": 7},
+        "door": {"color": (87, 1, 52), "id": 8},
+        "window": {"color": (37, 157, 235), "id": 9},
+        "bookshelf": {"color": (187, 191, 129), "id": 10},
+        "picture": {"color": (203, 160, 20), "id": 11},
+        "counter": {"color": (252, 21, 57), "id": 12},
+        "blinds": {"color": (48, 88, 235), "id": 13},
+        "desk": {"color": (254, 58, 218), "id": 14},
+        "shelves": {"color": (219, 255, 169), "id": 15},
+        "curtain": {"color": (14, 207, 187), "id": 16},
+        "dresser": {"color": (174, 189, 189), "id": 17},
+        "pillow": {"color": (107, 50, 189), "id": 18},
+        "mirror": {"color": (63, 243, 54), "id": 19},
+        "floor_mat": {"color": (228, 130, 248), "id": 20},
+        "clothes": {"color": (20, 134, 50), "id": 21},
+        "ceiling": {"color": (17, 166, 72), "id": 22},
+        "books": {"color": (59, 88, 131), "id": 23},
+        "refrigerator": {"color": (249, 241, 13), "id": 24},
+        "television": {"color": (52, 89, 8), "id": 25},
+        "paper": {"color": (91, 83, 129), "id": 26},
+        "towel": {"color": (198, 187, 110), "id": 27},
+        "shower_curtain": {"color": (7, 252, 171), "id": 28},
+        "box": {"color": (205, 34, 174), "id": 29},
+        "whiteboard": {"color": (49, 163, 80), "id": 30},
+        "person": {"color": (1, 131, 103), "id": 31},
+        "night stand": {"color": (53, 133, 253), "id": 32},
+        "toilet": {"color": (53, 3, 105), "id": 33},
+        "sink": {"color": (145, 190, 220), "id": 34},
+        "lamp": {"color": (161, 43, 217), "id": 35},
+        "bathtub": {"color": (227, 189, 201), "id": 36},
+        "bag": {"color": (47, 94, 13), "id": 37},
+        "otherstructure": {"color": (205, 199, 14), "id": 38},
+        "otherfurniture": {"color": (248, 251, 214), "id": 39},
+        "otherprop": {"color": (212, 39, 189), "id": 40},
+    },
     "cityscapes": {
         "road": {"color": (128, 64, 128), "id": 0},
         "sidewalk": {"color": (244, 35, 232), "id": 1},
@@ -62,6 +105,30 @@ LABELS = {
         "camera": {"color": (0, 102, 0), "id": 6},
         # "birdhouse": {"color": (255, 153, 204), "id": 7},
     },
+    "voc12": {
+        "background": {"color": (0, 0, 0), "id": 0},
+        "aeroplane": {"color": (128, 0, 0), "id": 1},
+        "bicycle": {"color": (0, 128, 0), "id": 2},
+        "bird": {"color": (128, 128, 0), "id": 3},
+        "boat": {"color": (0, 0, 128), "id": 4},
+        "bottle": {"color": (128, 0, 128), "id": 5},
+        "bus": {"color": (0, 128, 128), "id": 6},
+        "car": {"color": (128, 128, 128), "id": 7},
+        "cat": {"color": (64, 0, 0), "id": 8},
+        "chair": {"color": (192, 0, 0), "id": 9},
+        "cow": {"color": (64, 128, 0), "id": 10},
+        "diningtable": {"color": (192, 128, 0), "id": 11},
+        "dog": {"color": (64, 0, 128), "id": 12},
+        "horse": {"color": (192, 0, 128), "id": 13},
+        "motorbike": {"color": (64, 128, 128), "id": 14},
+        "person": {"color": (192, 128, 128), "id": 15},
+        "pottedplant": {"color": (0, 64, 0), "id": 16},
+        "sheep": {"color": (128, 64, 0), "id": 17},
+        "sofa": {"color": (0, 192, 0), "id": 18},
+        "train": {"color": (128, 192, 0), "id": 19},
+        "tvmonitor": {"color": (0, 64, 128), "id": 20},
+        "void": {"color": (128, 64, 128), "id": 21},
+    }
 }
 
 
@@ -70,4 +137,6 @@ THEMES = {
     "potsdam": "potsdam",
     "flightmare": "flightmare",
     "shapenet": "shapenet",
+    "scannet": "scannet",
+    "voc12": "voc12",
 }

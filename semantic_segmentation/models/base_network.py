@@ -82,7 +82,7 @@ class NetworkWrapper(LightningModule):
         super(NetworkWrapper, self).__init__()
         self.cfg = cfg
         self.network = network
-
+        
         self.model = self.network.model  # Lightning requires the model to be an attribute
         self.ignore_index = IGNORE_INDEX[cfg["data"]["name"]]
         self.loss_fn = get_loss_fn(cfg)
@@ -102,6 +102,13 @@ class NetworkWrapper(LightningModule):
         optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.cfg["train"]["lr"], weight_decay=self.cfg["train"]["weight_decay"]
         )
+        #param_groups = [
+        #    {"params": self.model.backbone.parameters(), "lr": self.cfg["train"]["lr"]},
+        #    {"params": self.model.classifier.parameters(), "lr": self.cfg["train"]["lr"] * 10},
+        #]
+        #optimizer = torch.optim.SGD(
+        #    param_groups, weight_decay=self.cfg["train"]["weight_decay"], momentum = 0.9, nesterov = False,
+        #)
         return optimizer
 
     def training_step(self):
@@ -127,6 +134,8 @@ class NetworkWrapper(LightningModule):
         outputs = self.val_step_outputs
         conf_matrices = [tmp["conf_matrix"] for tmp in outputs]
         calibration_info_list = [tmp["calibration_info"] for tmp in outputs]
+        loss_epoch = torch.stack([tmp["loss"] for tmp in outputs]).mean()
+        self.log("Validation_epoch/loss", loss_epoch)
         self.log_classification_metrics(
             conf_matrices,
             stage="Validation",
@@ -280,7 +289,8 @@ class NetworkWrapper(LightningModule):
             uncertainty (torch.Tensor): Uncertainty
         """
         # Plot the input image TODO: check the squeezes in this method
-        self.logger.experiment.add_image(f"{stage}/Input image", image, step, dataformats="CHW")
+        img_denorm = utils.denormalize_image(image.cpu())
+        self.logger.experiment.add_image(f"{stage}/Input image", img_denorm, step, dataformats="CHW")
 
         # Plot the output image as a label mask TODO: toOneHot transforms to detach.cpu.numpy(). fix.
         imap_pred = utils.toOneHot(argmax_pred, self.cfg["data"]["name"])

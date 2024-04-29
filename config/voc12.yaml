@@ -1,0 +1,77 @@
+experiment:
+    id: 'VOC_Drop0dot3_R50'
+
+##Data
+data:
+    name: 'voc12'
+    path_to_dataset: '/home/ego_exo4d/VOCdevkit/VOC2012'
+    #img_prop:
+    #    width: 400
+    #    height: 400
+    #    keep_aspect_ratio: true
+    depth: 3
+    batch_size: 4
+    train_shuffle: true
+    num_workers: 16
+
+##Training
+train:
+    n_gpus: 1
+    max_epoch: 30
+    lr: 0.0001
+    weight_decay: 0.0005
+    num_mc_aleatoric: 50
+    patience: 500
+    visualization_interval: 50
+
+    transformations:
+        random_flip:
+            prob: 0.5
+        random_crop:
+            coeff: 0.8
+            #height: 776 #El tamaño es 968 y hacemos un resize a un 0.8
+            #width: 1037 #El tamaño es 1296 y hacemos el resize a un 80% de su valor
+        resize:
+            height: 336
+            width: 448
+        
+        
+        #random_rotation:
+        #  min_angle: -180
+        #  max_angle:  180
+        #  step_size:   2
+        #color_jitter:
+        # brightness: 0.1 # 0.0-1.0
+        # contrast: 0.1 # 0.0-1.0
+        # saturation: 0.1 # 0.0-1.0
+        # hue: 0.1 # -0.5-0.5
+        # random_crop:
+        #   height:
+        #   width: 200
+        # resize:
+        #   height:
+        #   width: 344
+        #   keep_aspect_ratio: true
+
+val:
+    transformations:
+        random_crop:
+            coeff: 0.95
+        resize:
+            height: 336
+            width: 448
+
+test:
+    transformations:
+        # resize:
+        #   height:
+        #   width: 344
+        #   keep_aspect_ratio: true
+
+##Network
+model:
+    type: 'deterministic' # network, aleatoric_network
+    name: "deeplabv3" # erfnet, unet
+    num_classes: 21 #40 classes + background
+    loss: 'xentropy' # xentropy, nll
+

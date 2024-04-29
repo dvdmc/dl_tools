@@ -13,7 +13,7 @@ import yaml
 import pandas as pd
 
 
-class ScanNetDataModule(LightningDataModule):
+class VOC12DataModule(LightningDataModule):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
@@ -23,19 +23,19 @@ class ScanNetDataModule(LightningDataModule):
 
         # Assign datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            self._train = ScanNetDataset(
+            self._train = VOC12Dataset(
                 path_to_dataset,
                 "train",
                 transformations=get_transformations(self.cfg, "train"),
             )
-            self._val = ScanNetDataset(
+            self._val = VOC12Dataset(
                 path_to_dataset,
                 "val",
                 transformations=get_transformations(self.cfg, "val"),
             )
 
         if stage == "test":
-            self._test = ScanNetDataset(
+            self._test = VOC12Dataset(
                 path_to_dataset,
                 "test",
                 transformations=get_transformations(self.cfg, "test"),
@@ -66,64 +66,30 @@ class ScanNetDataModule(LightningDataModule):
         return loader
 
 
-class ScanNetDataset(Dataset):
+class VOC12Dataset(Dataset):
     def __init__(self, data_rootdir, mode, transformations):
         super().__init__()
 
         assert os.path.exists(data_rootdir)
-        split_file = os.path.join(data_rootdir, 'splits', f"{mode}.txt")
+        if mode == "train":
+            split_file = '/home/ego_exo4d/VOCdevkit/VOC2012/ImageSets/Segmentation/train_aug.txt'
+        elif mode == "val":
+            split_file = '/home/ego_exo4d/VOCdevkit/VOC2012/ImageSets/Segmentation/val.txt'
         assert os.path.exists(split_file)
         with open(split_file, "r") as f:
-            scene_id_list = [x.strip() for x in f.readlines()]
+            image_id_list = [x.strip() for x in f.readlines()]
 
-        scene_path = [os.path.join(data_rootdir, "data", "scans", scene_id) for scene_id in scene_id_list if scene_id.endswith("_00")]
-
-        # Check if scenes exist. Print warning if not.
-        for scene in scene_path:
-            if not os.path.exists(scene):
-                print(f"Warning: {scene} does not exist!")
-
-        self.image_files = []
-        self.label_files = []
-        for scene in scene_path:
-            image_path = os.path.join(scene, "color")
-            label_path = os.path.join(scene, "semantic_labels_filt")
-            
-            #Images
-            scene_images = [
-                x for x in glob.glob(os.path.join(image_path, "*")) if (x.endswith(".jpg") or x.endswith(".png"))
-            ]
-            scene_images = [image for image in scene_images
-                            if int(image.split('/')[-1].split('.')[0]) % 20 == 0] #We reduce the dataset size and avoid redundant images
-            scene_images.sort()
-            
-            #Sementic label maps
-            scene_labels = [
-                x for x in glob.glob(os.path.join(label_path, "*")) if (x.endswith(".jpg") or x.endswith(".png"))
-            ]
-            scene_labels = [label for label in scene_labels 
-                            if int(label.split('/')[-1].split('.')[0]) % 20 == 0]
-            scene_labels.sort()
-            
-            self.image_files += scene_images
-            self.label_files += scene_labels
+        self.image_files = [os.path.join(data_rootdir, "JPEGImages", x + ".jpg") for x in image_id_list]
+        self.label_files = [os.path.join(data_rootdir, "SegmentationClassAug", x + ".png") for x in image_id_list]
         print(f"Found {len(self.image_files)} images for {mode} mode")
-        print(f"Found {len(self.label_files)} images for {mode} mode")
+        print(f"Found {len(self.label_files)} labels for {mode} mode")
+        print(self.image_files[0], self.label_files[0])
+    
         assert len(self.image_files) == len(self.label_files)
         self.img_to_tensor = transforms.ToTensor()
         self.transformations = transformations
         self.normalize_img = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        self.mapping_from_ScanNet_to_NYU40 = self.label_indexer()
 
-        
-    def label_indexer(self):
-        tsv_file = '/home/ego_exo4d/Documents/dl_tools_loren/semantic_segmentation/datasets/scannetv2-labels.combined.tsv'
-        label_mapping = pd.read_csv(tsv_file, sep='\t')
-        NYU_classes = label_mapping['eigen13id'].values
-        id_classes = label_mapping['id'].values
-        #Make a dict with the mapping between ScanNet classes and NYUv2 classes
-        return {id_classes[i]: NYU_classes[i].astype(int) for i in range(len(NYU_classes))}
-        
     def get_label(self, label_path):
         label_map = np.array(Image.open(label_path))
         label_map = torch.Tensor(label_map).unsqueeze(0)
@@ -137,19 +103,13 @@ class ScanNetDataset(Dataset):
         
         path_to_current_label = self.label_files[idx]
         label = self.get_label(path_to_current_label) #(1, H, W) Tensor
+        label[label == 255] = 0
         
         # apply a set of transformations to the raw_image, image and label
         for transformer in self.transformations:
             img, label, img_pil = transformer(img, label, img_pil)
-        label = self.remap_label(label).squeeze(0)
-        return {"data": img, "label": label, "index": idx}
+
+        return {"data": img, "label": label.squeeze().long(), "index": idx}
 
     def __len__(self):
         return len(self.image_files)
-
-    def remap_label(self, ScanNet_label):
-        label_40 = np.zeros_like(ScanNet_label)
-        for key, value in self.mapping_from_ScanNet_to_NYU40.items():
-            label_40[np.where(ScanNet_label == key)] = value
-        return torch.from_numpy(label_40).long()
-    

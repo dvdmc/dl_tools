@@ -56,8 +56,9 @@ from semantic_segmentation.models.erfnet.aleatoric_erfnet import AleatoricERFNet
 from semantic_segmentation.models.unet.unet import UNetModel
 from semantic_segmentation.models.unet.aleatoric_unet import AleatoricUNetModel
 
-from semantic_segmentation.models.deeplabv3.deeplabv3 import DeepLabV3Model
-from semantic_segmentation.models.deeplabv3.deeplabv3_mcd import DeepLabV3Model_mcd
+#from semantic_segmentation.models.deeplabv3.deeplabv3 import DeepLabV3Model
+from semantic_segmentation.models.deeplabv3.deeplabv3_resnet import DeepLabV3Model_MCD
+#from semantic_segmentation.models.deeplabv3.deeplabv3_mcd import DeepLabV3Model_mcd
 
 # TODO: Currently, MCDNetworkWrapper and MCDNetwork are not implemented.
 NetworkWrapperType = Union["DeterministicNetworkWrapper", "AleatoricNetworkWrapper", "MCDNetworkWrapper"]
@@ -69,25 +70,25 @@ LossType = Union["CrossEntropyLoss", "NLLLoss", "AleatoricLoss"]
 network_wrapper = {
     "deterministic": DeterministicNetworkWrapper,
     "aleatoric": AleatoricNetworkWrapper,
-    "mcd": MCDNetworkWrapper,
+    #"mcd": MCDNetworkWrapper,
 }
 
 networks = {
     "deterministic": DeterministicNetwork,
     "aleatoric": AleatoricNetwork,
-    "mcd": MCDNetwork,
+    #"mcd": MCDNetwork,
 }
 
 deterministic_models = {
     "erfnet": ERFNetModel,
     "unet": UNetModel,
-    "deeplabv3": DeepLabV3Model,
+    "deeplabv3": DeepLabV3Model_MCD,
 }
 
 aleatoric_models = {
     "erfnet": AleatoricERFNetModel,
     "unet": AleatoricUNetModel,
-    "deeplabv3": DeepLabV3Model_mcd,
+    "deeplabv3": DeepLabV3Model_MCD,
 }
 
 models_dict = {
