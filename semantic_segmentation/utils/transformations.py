@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
 from PIL.Image import Image as PILImage
+from PIL import Image
 import torch
 import torchvision
 import torchvision.transforms.functional as TF
@@ -111,17 +112,36 @@ class JointCenterCropTransform(JointTransformation):
 class JointRandomCropTransform(JointTransformation):
     """Extract a random patch from a given image and its corresponding label."""
 
-    def __init__(self, crop_coef: Optional[float] = None):
+    def __init__(self, crop_value: Optional[float] = None):
         """Set height and width of cropping region.
 
         Args:
             crop_height (Optional[int], optional): Height of cropping region. Defaults to None.
             crop_width (Optional[int], optional): Width of cropping region. Defaults to None.
         """
-        self.crop_coef = crop_coef
+        self.crop_value = crop_value
+
+    def get_params(self, img_torch, output_size):
+        """Get parameters for ``crop`` for a random crop.
+        Args:
+            img (PIL Image): Image to be cropped.
+            output_size (tuple): Expected output size of the crop.
+        Returns:
+            tuple: params (i, j, h, w) to be passed to ``crop`` for random crop.
+        """
+        h, w = img_torch.shape[1], img_torch.shape[2]
+        #w, h = img.size
+        th, tw = output_size, output_size
+
+        if w == tw and h == th:
+            return 0, 0, h, w
+
+        i = random.randint(0, h - th)
+        j = random.randint(0, w - tw)
+        return i, j, th, tw
 
     def __call__(
-        self, image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None
+        self, img_torch: torch.Tensor, label: torch.Tensor, img_PIL: Optional[PILImage] = None
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[PILImage]]:
         """Apply cropping to an image and its corresponding label.
 
@@ -133,8 +153,27 @@ class JointRandomCropTransform(JointTransformation):
             Tuple[torch.Tensor, torch.Tensor]: cropped image, cropped label
         """
         # dimension of each input should be identical
-        assert_dimensions_are_equal(image, label, raw_image)
+        assert_dimensions_are_equal(img_torch, label, img_PIL)
 
+        #Pad if the image is smaller than the crop value
+        if img_torch.shape[1] < self.crop_value:
+            img_torch = TF.pad(img_torch, (1 + self.crop_value - img_torch.shape[1])//2, fill=0)
+            label = TF.pad(label, (1 + self.crop_value - label.shape[1])//2, fill=0)
+        
+        if img_torch.shape[2] < self.crop_value:
+            img_torch = TF.pad(img_torch, (1 + self.crop_value - img_torch.shape[2])//2, fill=0)
+            label = TF.pad(label, (1 + self.crop_value - label.shape[2])//2, fill=0)
+        
+        #Get the parameters for the crop
+        i, j, h, w = self.get_params(img_torch, self.crop_value)
+        #Crop the image
+        img_torch = img_torch[:, i:i+h, j:j+w]
+        #Crop the label
+        label = label[:, i:i+h, j:j+w]
+
+        return img_torch, label
+
+        """
         img_chans, img_height, img_width = image.shape[:3]
         self.crop_width = int(img_width * self.crop_coef)
         self.crop_height = int(img_height * self.crop_coef)
@@ -158,6 +197,7 @@ class JointRandomCropTransform(JointTransformation):
         image_cropped = image[:, y_start : y_start + self.crop_height, x_start : x_start + self.crop_width]
         #label_cropped = TF.crop(label, y_start, x_start, self.crop_height, self.crop_width)
         label_cropped = label[:, y_start : y_start + self.crop_height, x_start : x_start + self.crop_width]
+        print('After the rescale, doing the random cropping')
 
         assert image_cropped.shape[0] == img_chans, "Cropped image has an unexpected number of channels."
         assert image_cropped.shape[1] == self.crop_height, "Cropped image has not the desired size."
@@ -176,6 +216,7 @@ class JointRandomCropTransform(JointTransformation):
             return image_cropped, label_cropped, raw_image_cropped
         else:
             return image_cropped, label_cropped
+        """
 
 
 class JointResizeTransform(JointTransformation):
@@ -241,75 +282,6 @@ class JointResizeTransform(JointTransformation):
             return image_resized, label_resized
 
 
-class JointRandomRotationTransform(JointTransformation):
-    """Rotate a given image and its corresponding label."""
-
-    def __init__(
-        self, min_angle: Optional[float] = None, max_angle: Optional[float] = None, step_size: Optional[float] = None
-    ):
-        self.min_angle = min_angle  # degree
-        self.max_angle = max_angle  # degree
-        self.step_size = step_size  # degree
-
-    def __call__(
-        self, image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None
-    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[PILImage]]:
-        if (self.min_angle is None) or (self.max_angle is None) or (self.step_size is None):
-            return image, label
-
-        assert self.min_angle is not None
-        assert self.max_angle is not None
-        assert self.step_size is not None
-
-        assert self.min_angle < self.max_angle
-        assert self.step_size > 0
-
-        angles = torch.arange(self.min_angle, self.max_angle, step=self.step_size)
-        random_angle = float(random.choice(list(angles)))  # degree
-
-        image_rotated = TF.rotate(image, random_angle, interpolation=TF.InterpolationMode.BILINEAR)
-        label_rotated = TF.rotate(label, random_angle, interpolation=TF.InterpolationMode.NEAREST)
-
-        if raw_image is not None:
-            raw_image_rotated = TF.rotate(raw_image, random_angle, interpolation=TF.InterpolationMode.BILINEAR)
-            return image_rotated, label_rotated, raw_image_rotated
-        else:
-            return image_rotated, label_rotated
-
-
-class JointRandomColorJitterTransform(JointTransformation):
-    """Apply colour jitter to a given image.
-    Ignores the label."""
-
-    def __init__(
-        self,
-        brightness: float = 0.0,
-        contrast: float = 0.0,
-        saturation: float = 0.0,
-        hue: float = 0.0,
-    ):
-        """Set colour jitter parameters.
-        See: https://pytorch.org/vision/stable/transforms.html
-        """
-        self.brightness = brightness
-        self.contrast = contrast
-        self.saturation = saturation
-        self.hue = hue
-
-    def __call__(
-        self, image: torch.Tensor, label: torch.Tensor, raw_image: Optional[PILImage] = None
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-
-        jitter = torchvision.transforms.ColorJitter(
-            brightness=self.brightness, contrast=self.contrast, saturation=self.saturation, hue=self.hue
-        )
-        image_jitted = jitter(image)
-        if raw_image is not None:
-            raw_image_jitted = jitter(raw_image)
-            return image_jitted, label, raw_image_jitted
-        else:
-            return image_jitted, label
-
 class JointRandomFlip(JointTransformation):
     """Apply horizontal flip to an image"""
 
@@ -325,6 +297,7 @@ class JointRandomFlip(JointTransformation):
 
         #Generate a random number between 0 and 1
         coin = random.random()
+
         if coin > self.prob_th:
             image = TF.hflip(image)
             label = TF.hflip(label)
@@ -335,6 +308,38 @@ class JointRandomFlip(JointTransformation):
             return image, label, raw_image
         else:
             return image, label
+
+class ExtRandomScale(JointTransformation):
+    def __init__(self, scale_range, interpolation=Image.BILINEAR):
+        self.scale_range = scale_range
+        self.interpolation = interpolation
+
+    def __call__(self, img, lbl, img_PIL = None):
+        """
+        Args:
+            img (Torch tensor): Image to be scaled.
+            lbl (Torch tensor): Label to be scaled.
+            img_PIL (PIL Image): Image to be scaled.
+        Returns:
+            Torch tensor: Rescaled image.
+            Torch tensor: Rescaled label.
+            PIL Image: Rescaled image.
+        """
+        #assert img.size == lbl.size
+        assert img.shape[1:] == lbl.shape[1:]
+        
+        scale = random.uniform(self.scale_range[0], self.scale_range[1])
+        target_size = (int(img.shape[1]*scale), int(img.shape[2]*scale)) # (H, W)
+
+        scaled_img_torch = torch.nn.functional.interpolate(img.unsqueeze(0), size=target_size, mode='bilinear', align_corners=False)[0]
+        scaled_lbl_torch = torch.nn.functional.interpolate(lbl.unsqueeze(0), size=target_size, mode='nearest')[0]
+        #scaled_img_PIL = img_PIL.resize((target_size[1], target_size[0]), self.interpolation)
+
+        return scaled_img_torch, scaled_lbl_torch
+
+    #def __repr__(self):
+    #    interpolate_str = _pil_interpolation_to_str[self.interpolation]
+    #    return self.__class__.__name__ + '(size={0}, interpolation={1})'.format(self.size, interpolate_str)
 
 
 # TODO: Move this somewhere else? Config file or here?
@@ -347,23 +352,30 @@ def get_transformations(cfg, stage: str) -> List[JointTransformation]:
             return transformations
 
         for tf_name in cfg[stage]["transformations"].keys():  
-            if tf_name == "random_flip":
-                print('RANDOM FPLIP TRANSFORMATION')
+            if tf_name == "random_scale": #For training
+                min_scale = cfg[stage]["transformations"][tf_name]["min_scale"]
+                max_scale = cfg[stage]["transformations"][tf_name]["max_scale"]
+                transformer = ExtRandomScale((min_scale, max_scale))
+                transformations.append(transformer)
+
+            if tf_name == "random_crop": #For training
+                crop_value = cfg[stage]["transformations"][tf_name]["value"]
+                transformer = JointRandomCropTransform(crop_value)
+                transformations.append(transformer)
+
+            if tf_name == "random_flip": #For training
                 prob_th = cfg[stage]["transformations"][tf_name]["prob"]
                 transformer = JointRandomFlip(prob_th)
                 transformations.append(transformer)
                 
-            if tf_name == "random_crop":
-                print('CROPPING TRANSFORMATION')
-                crop_coef = cfg[stage]["transformations"][tf_name]["coeff"]
-                transformer = JointRandomCropTransform(crop_coef)
+            if tf_name == "resize": #For validation and test
+                resize_value = cfg[stage]["transformations"][tf_name]["value"]
+                transformer = JointResizeTransform(resize_value, resize_value)
                 transformations.append(transformer)
-                
-            if tf_name == "resize":
-                print('RESIZE TRANSFORMATION')
-                resize_height = cfg[stage]["transformations"][tf_name]["height"]
-                resize_width = cfg[stage]["transformations"][tf_name]["width"]
-                transformer = JointResizeTransform(resize_height, resize_width)
+
+            if tf_name == "center_crop": #For validation and test
+                center_crop = cfg[stage]["transformations"][tf_name]["value"]
+                transformer = JointCenterCropTransform(center_crop, center_crop)
                 transformations.append(transformer)
             
             """
@@ -388,7 +400,6 @@ def get_transformations(cfg, stage: str) -> List[JointTransformation]:
                 transformer = JointRandomColorJitterTransform(brightness, contrast, saturation, hue)
                 transformations.append(transformer) 
             """
-            
 
     except KeyError:
         return transformations

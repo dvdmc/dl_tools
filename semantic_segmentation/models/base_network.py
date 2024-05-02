@@ -25,10 +25,23 @@ from semantic_segmentation.constants import IGNORE_INDEX
 from semantic_segmentation.models import get_loss_fn
 from semantic_segmentation.models.loss import CrossEntropyLoss
 from semantic_segmentation.utils import metrics
+import wandb
 
 if TYPE_CHECKING:
     from semantic_segmentation.models import NetworkType
 
+from torch.optim.lr_scheduler import _LRScheduler, StepLR
+
+class PolyLR(_LRScheduler):
+    def __init__(self, optimizer, max_iters, power=0.9, last_epoch=-1, min_lr=1e-6):
+        self.power = power
+        self.max_iters = max_iters  # avoid zero lr
+        self.min_lr = min_lr
+        super(PolyLR, self).__init__(optimizer, last_epoch)
+    
+    def get_lr(self):
+        return [ max( base_lr * ( 1 - self.last_epoch/self.max_iters )**self.power, self.min_lr)
+                for base_lr in self.base_lrs]
 
 class BaseNetwork:
     """
@@ -93,15 +106,25 @@ class NetworkWrapper(LightningModule):
         self.val_step_outputs = []
         self.test_step_outputs = []
 
+    def load_pretrained_weights(self, checkpoint_url):
+        """
+        Load pretrained weights from checkpoint_url
+        """
+        checkpoint = torch.hub.load_state_dict_from_url(checkpoint_url, progress=True)
+        self.model.load_state_dict(checkpoint)
+        print('Pretrained weights loaded from:', checkpoint_url)
+    
+
+
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """
         From LightningModule.
         Returns the optimizer based on the config file.
         TODO (later): do we add more optimizers?
         """
-        optimizer = torch.optim.AdamW(
-            self.parameters(), lr=self.cfg["train"]["lr"], weight_decay=self.cfg["train"]["weight_decay"]
-        )
+        #optimizer = torch.optim.AdamW(
+        #    self.parameters(), lr=self.cfg["train"]["lr"], weight_decay=self.cfg["train"]["weight_decay"]
+        #)
         #param_groups = [
         #    {"params": self.model.backbone.parameters(), "lr": self.cfg["train"]["lr"]},
         #    {"params": self.model.classifier.parameters(), "lr": self.cfg["train"]["lr"] * 10},
@@ -109,7 +132,25 @@ class NetworkWrapper(LightningModule):
         #optimizer = torch.optim.SGD(
         #    param_groups, weight_decay=self.cfg["train"]["weight_decay"], momentum = 0.9, nesterov = False,
         #)
-        return optimizer
+        #optimizer = torch.optim.Adam(params = [
+        #{'params': self.model.backbone.parameters(), 'lr': 1e-5},
+        #{'params': self.model.classifier.parameters(), 'lr': 1e-5}], lr = 1e-5, weight_decay = 5e-4) #Antes estaba en 1e-4
+        optimizer = torch.optim.SGD(params=[{'params': self.model.backbone.parameters(), 'lr': 1 * 0.01},
+                                            {'params': self.model.classifier.parameters(), 'lr': 0.01},], 
+                                            lr=0.01, momentum=0.9, weight_decay=1e-4)
+        scheduler = PolyLR(optimizer, 30, power=0.9)
+        #scheduler = torch.optim.lr_scheduler.StepLR(optimizer=my_optimizer, step_size=10, gamma=0.1)
+        #return optimizer
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",  # "step" para por paso, "epoch" para por época
+                "frequency": 1,       # Frecuencia de actualización
+                "reduce_on_plateau": False,  # Si es para ReduceLROnPlateau
+                # "monitor": "val_loss",  # Metrica a monitorear si reduce_on_plateau es True
+            }
+        }
 
     def training_step(self):
         raise NotImplementedError
@@ -141,15 +182,15 @@ class NetworkWrapper(LightningModule):
             stage="Validation",
             calibration_info_list=calibration_info_list,
         )
-        self.log_confusion_matrix(conf_matrices, stage="Validation")
-        self.log_calibration_plots(calibration_info_list)
+        #self.log_confusion_matrix(conf_matrices, stage="Validation")
+        #self.log_calibration_plots(calibration_info_list)
 
-        fig_ = metrics.compute_calibration_plots(calibration_info_list, num_bins=50)
-        self.logger.experiment.add_figure("UncertaintyStats/Calibration", fig_, self.current_epoch)
+        #fig_ = metrics.compute_calibration_plots(calibration_info_list, num_bins=50)
+        #self.logger.experiment.add_figure("UncertaintyStats/Calibration", fig_, self.current_epoch)
 
         self.vis_step = 0
 
-    def test_epoch_end(self):
+    def on_test_epoch_end(self):
         """
         Log the confusion matrix and calibration info at the end of the evaluation epoch.
         We track... TODO: what?
@@ -159,6 +200,14 @@ class NetworkWrapper(LightningModule):
               in their outputs.
         """
         outputs = self.test_step_outputs
+        for tmp in outputs:
+            print(tmp.keys(), 'keys in the outputs')
+            print(tmp['conf_matrix'].shape, 'conf_matrix in the outputs', tmp['loss'])
+            print(tmp['calibration_info'].keys(), 'calibration_info in the outputs')
+            cal = tmp['calibration_info']
+            print(cal['conf_bin'], 'conf_bin in the calibration_info')
+            print(cal['acc_bin'], 'acc_bin in the calibration_info')
+            print(cal['prop_bin'], 'n_bin in the calibration_info')
         conf_matrices = [tmp["conf_matrix"] for tmp in outputs]
         calibration_info_list = [tmp["calibration_info"] for tmp in outputs]
 
@@ -167,8 +216,8 @@ class NetworkWrapper(LightningModule):
             stage="Test",
             calibration_info_list=calibration_info_list,
         )
-        self.log_confusion_matrix(conf_matrices, stage="Test")
-        self.log_calibration_plots(calibration_info_list)
+        #self.log_confusion_matrix(conf_matrices, stage="Test")
+        #self.log_calibration_plots(calibration_info_list)
 
     def log_classification_metrics(  # not refactored
         self,
@@ -184,19 +233,20 @@ class NetworkWrapper(LightningModule):
             stage (str): Stage of the pipeline.
             calibration_info_list (list): List of calibration info.
         """
-        miou = metrics.mean_iou_from_conf_matrices(conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]])
+        #miou = metrics.mean_iou_from_conf_matrices(conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]])
+        miou = metrics.mean_iou_from_conf_matrices(conf_matrices, ignore_index=None)
         per_class_iou = metrics.per_class_iou_from_conf_matrices(
-            conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]]
+            conf_matrices, ignore_index=None
         )
         accuracy = metrics.accuracy_from_conf_matrices(
-            conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]]
+            conf_matrices, ignore_index=None
         )
         precision = metrics.precision_from_conf_matrices(
-            conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]]
+            conf_matrices, ignore_index=None
         )
-        recall = metrics.recall_from_conf_matrices(conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]])
+        recall = metrics.recall_from_conf_matrices(conf_matrices, ignore_index=None)
         f1_score = metrics.f1_score_from_conf_matrices(
-            conf_matrices, ignore_index=IGNORE_INDEX[self.cfg["data"]["name"]]
+            conf_matrices, ignore_index=None
         )
 
         ece = -1.0
@@ -249,7 +299,9 @@ class NetworkWrapper(LightningModule):
             calibration_info_list (list): List of calibration info. TODO: Improve definition
         """
         fig_ = metrics.compute_calibration_plots(calibration_info_list, num_bins=50)
-        self.logger.experiment.add_figure("UncertaintyStats/Calibration", fig_, self.current_epoch)
+        fig_wandb = wandb.Table(data = fig_)
+        self.logger.experiment.log({f"UncertaintyStats/Calibration": fig_wandb})
+        #self.logger.experiment.add_figure("UncertaintyStats/Calibration", fig_, self.current_epoch)
 
     def log_gradient_norms(self):  # not refactored
         """
@@ -290,26 +342,34 @@ class NetworkWrapper(LightningModule):
         """
         # Plot the input image TODO: check the squeezes in this method
         img_denorm = utils.denormalize_image(image.cpu())
-        self.logger.experiment.add_image(f"{stage}/Input image", img_denorm, step, dataformats="CHW")
+        img_wandb = wandb.Image(img_denorm.squeeze().permute(1, 2, 0).numpy())
+        #self.logger.experiment.add_image(f"{stage}/Input image", img_denorm, step, dataformats="CHW")
+        self.logger.experiment.log({f"{stage}/Input image": img_wandb})
 
         # Plot the output image as a label mask TODO: toOneHot transforms to detach.cpu.numpy(). fix.
         imap_pred = utils.toOneHot(argmax_pred, self.cfg["data"]["name"])
-        self.logger.experiment.add_image(
-            f"{stage}/Output image",
-            torch.from_numpy(imap_pred),
-            step,
-            dataformats="HWC",
-        )
+        imap_pred_wandb = wandb.Image(imap_pred)
+        self.logger.experiment.log({f"{stage}/Output image": imap_pred_wandb})
+        
+        #self.logger.experiment.add_image(
+        #    f"{stage}/Output image",
+        #    torch.from_numpy(imap_pred),
+        #    step,
+        #    dataformats="HWC",
+        #)
 
         # Plot the ground truth label as a label mask
         imap_true = utils.toOneHot(true_label, self.cfg["data"]["name"])
-        self.logger.experiment.add_image(
-            f"{stage}/Annotation",
-            torch.from_numpy(imap_true),
-            step,
-            dataformats="HWC",
-        )
-
+        imap_true_wandb = wandb.Image(imap_true)
+        self.logger.experiment.log({f"{stage}/Annotation": imap_true_wandb})
+        #self.logger.experiment.add_image(
+        #    f"{stage}/Annotation",
+        #    torch.from_numpy(imap_true),
+        #    step,
+        #    dataformats="HWC",
+        #)
+        
+        """
         # Plot the error image with the cross entropy loss
         # This needs the images to be in batch format
         # TODO: Change to configured loss?
@@ -340,4 +400,7 @@ class NetworkWrapper(LightningModule):
             fig.add_axes(ax)
             self.logger.experiment.add_figure(f"{stage}/Uncertainty", fig, step)
             plt.cla()
-            plt.clf()
+            plt.clf()        
+        """
+
+        

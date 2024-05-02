@@ -17,12 +17,18 @@ from utils.utils import paint_labels_and_image
 import warnings
 import os
 
+import argparse
+import wandb
+from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+
 warnings.filterwarnings("ignore")
+
 
 
 def main(
     config: str = join(dirname(abspath(__file__))),
-    weights: Optional[str] = None,  # TODO: add possibility to load weights
+    exp: Optional[str] = None,  # TODO: add possibility to load weights
     checkpoint: Optional[str] = None,
 ):
     """
@@ -32,22 +38,18 @@ def main(
         config (str): path to config file (.yaml)
         weights (str): path to pretrained weights (.ckpt)
         checkpoint (str): path to checkpoint file (.ckpt) to resume training.
-    """
+    """    
     with open(config, "r") as config_file:
         cfg = yaml.safe_load(config_file)
 
     # Load data and model
     data = get_data_module(cfg)
     data.setup(stage = 'fit')
-    
+
 
     # Load data and model
-    #data = get_data_module(cfg)
-    #data.setup(stage = 'fit')
-    #train_loader = data.train_dataloader()
-    
     model = get_model(cfg)
-    print(model)
+
 
     # Add callbacks
     lr_monitor = LearningRateMonitor(logging_interval="step")
@@ -58,15 +60,22 @@ def main(
         save_last=True,
     )
 
-    log_dir = os.path.join('/home/ego_exo4d/Documents/dl_tools_loren/experiments', cfg["experiment"]["id"])
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-    tb_logger = pl_loggers.TensorBoardLogger(log_dir)
+    
+    # Inicializa wandb
+    output_dir = '/home/ego_exo4d/Documents/dl_tools_loren/wandb_logs'
+    wandb_dir = os.path.join(output_dir, exp)
+    if not(os.path.exists(wandb_dir)):
+        os.makedirs(wandb_dir)
+    n_subexperiments = os.listdir(wandb_dir)
+    subdirs = [item for item in os.listdir(wandb_dir) if os.path.isdir(os.path.join(wandb_dir, item))]
+    name_exp = exp + '_' + str(len(subdirs) + 1)
+    wb_logger = WandbLogger(project="SEM_mapping", entity="affordances", name=name_exp, dir=wandb_dir)
 
     # Setup trainer
     trainer = Trainer(
-        devices=cfg["train"]["n_gpus"],
-        logger=tb_logger,
+        devices=[cfg["train"]["n_gpus"]],
+        accelerator = 'gpu',
+        logger=wb_logger,
         max_epochs=cfg["train"]["max_epoch"],
         callbacks=[lr_monitor, checkpoint_saver],
     )

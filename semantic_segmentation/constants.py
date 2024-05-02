@@ -5,7 +5,7 @@ class Losses:
     ALEATORIC = "aleatoric"
 
 
-IGNORE_INDEX = {"cityscapes": 19, "potsdam": 0, "flightmare": 9, "shapenet": None, "scannet": 0, 'voc12': None}
+IGNORE_INDEX = {"cityscapes": 19, "potsdam": 0, "flightmare": 9, "shapenet": None, "scannet": 0, 'voc12':255}
 
 
 LABELS = {

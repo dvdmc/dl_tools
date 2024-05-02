@@ -37,8 +37,8 @@ class VOC12DataModule(LightningDataModule):
         if stage == "test":
             self._test = VOC12Dataset(
                 path_to_dataset,
-                "test",
-                transformations=get_transformations(self.cfg, "test"),
+                "val",
+                transformations=get_transformations(self.cfg, "val"),
             )
 
     def train_dataloader(self):
@@ -58,7 +58,7 @@ class VOC12DataModule(LightningDataModule):
         return loader
 
     def test_dataloader(self):
-        batch_size = self.cfg["data"]["batch_size"]
+        batch_size = 1 #self.cfg["data"]["batch_size"]
         n_workers = self.cfg["data"]["num_workers"]
 
         loader = DataLoader(self._test, batch_size=batch_size, num_workers=n_workers, shuffle=False)
@@ -75,6 +75,8 @@ class VOC12Dataset(Dataset):
             split_file = '/home/ego_exo4d/VOCdevkit/VOC2012/ImageSets/Segmentation/train_aug.txt'
         elif mode == "val":
             split_file = '/home/ego_exo4d/VOCdevkit/VOC2012/ImageSets/Segmentation/val.txt'
+        elif mode == "test":
+            split_file = '/home/ego_exo4d/VOCdevkit/VOC2012/ImageSets/Segmentation/test.txt'
         assert os.path.exists(split_file)
         with open(split_file, "r") as f:
             image_id_list = [x.strip() for x in f.readlines()]
@@ -82,8 +84,7 @@ class VOC12Dataset(Dataset):
         self.image_files = [os.path.join(data_rootdir, "JPEGImages", x + ".jpg") for x in image_id_list]
         self.label_files = [os.path.join(data_rootdir, "SegmentationClassAug", x + ".png") for x in image_id_list]
         print(f"Found {len(self.image_files)} images for {mode} mode")
-        print(f"Found {len(self.label_files)} labels for {mode} mode")
-        print(self.image_files[0], self.label_files[0])
+        #print(f"Found {len(self.label_files)} labels for {mode} mode")
     
         assert len(self.image_files) == len(self.label_files)
         self.img_to_tensor = transforms.ToTensor()
@@ -103,11 +104,11 @@ class VOC12Dataset(Dataset):
         
         path_to_current_label = self.label_files[idx]
         label = self.get_label(path_to_current_label) #(1, H, W) Tensor
-        label[label == 255] = 0
+        #label[label == 255] = 0
         
         # apply a set of transformations to the raw_image, image and label
         for transformer in self.transformations:
-            img, label, img_pil = transformer(img, label, img_pil)
+            img, label = transformer(img, label)
 
         return {"data": img, "label": label.squeeze().long(), "index": idx}
 

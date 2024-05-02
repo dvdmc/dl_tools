@@ -57,8 +57,9 @@ from semantic_segmentation.models.unet.unet import UNetModel
 from semantic_segmentation.models.unet.aleatoric_unet import AleatoricUNetModel
 
 #from semantic_segmentation.models.deeplabv3.deeplabv3 import DeepLabV3Model
-from semantic_segmentation.models.deeplabv3.deeplabv3_resnet import DeepLabV3Model_MCD
+#from semantic_segmentation.models.deeplabv3.deeplabv3_resnet import DeepLabV3Model_MCD
 #from semantic_segmentation.models.deeplabv3.deeplabv3_mcd import DeepLabV3Model_mcd
+from semantic_segmentation.models.deeplabv3.deeplab_classifier import deeplabv3_resnet50, deeplabv3_resnet50_MCD, deeplabv3plus_resnet50, deeplabv3plus_resnet50_MCD
 
 # TODO: Currently, MCDNetworkWrapper and MCDNetwork are not implemented.
 NetworkWrapperType = Union["DeterministicNetworkWrapper", "AleatoricNetworkWrapper", "MCDNetworkWrapper"]
@@ -82,13 +83,13 @@ networks = {
 deterministic_models = {
     "erfnet": ERFNetModel,
     "unet": UNetModel,
-    "deeplabv3": DeepLabV3Model_MCD,
+    "deeplabv3": deeplabv3_resnet50_MCD,
 }
 
 aleatoric_models = {
     "erfnet": AleatoricERFNetModel,
     "unet": AleatoricUNetModel,
-    "deeplabv3": DeepLabV3Model_MCD,
+    "deeplabv3": deeplabv3_resnet50,
 }
 
 models_dict = {
