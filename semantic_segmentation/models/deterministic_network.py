@@ -123,6 +123,7 @@ class DeterministicNetworkWrapper(NetworkWrapper):
         logits, probs, pred_label, _ = self.network.get_predictions(batch["data"])
         loss = self.loss_fn(logits, true_label)
 
+        print(logits.shape, probs.shape, pred_label.shape, true_label.shape)
         confusion_matrix = torchmetrics.functional.confusion_matrix(
             pred_label, true_label, task="multiclass", num_classes=self.network.num_classes, normalize=None
         )

@@ -235,3 +235,7 @@ dmypy.json
 results/
 
 *_env*
+
+*wandb*
+
+*show_dir*
