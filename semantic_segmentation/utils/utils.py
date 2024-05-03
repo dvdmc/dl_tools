@@ -5,7 +5,74 @@ from pytorch_lightning import LightningModule
 from torch import nn
 from torchvision import transforms
 from semantic_segmentation.constants import LABELS, THEMES
+import cv2
+from PIL import Image
+import os
 
+#Dictionary in BGR colors
+nyu40_colors = {1: [102, 179, 92], # wall
+                2: [14, 106, 71], # floor
+                3: [188, 20, 102], # cabinet
+                4: [121, 210, 214], # bed
+                5: [74, 202, 87], # chair
+                6: [116, 99, 103], # sofa
+                7: [151, 130, 149], # table
+                8: [52, 1, 87], # door
+                9: [235, 157, 37], # window
+                10: [129, 191, 187], # bookshelf
+                11: [20, 160, 203], # picture
+                12: [57, 21, 252], # counter
+                13: [235, 88, 48], # blinds
+                14: [218, 58, 254], # desk
+                15: [169, 255, 219], # shelves
+                16: [187, 207, 14], # curtain
+                17: [189, 189, 174], # dresser
+                18: [189, 50, 107], # pillow
+                19: [54, 243, 63], # mirror
+                20: [248, 130, 228], # floor mat
+                21: [50, 134, 20], # clothes
+                22: [72, 166, 17], # ceiling
+                23: [131, 88, 59], # books
+                24: [13, 241, 249], # refrigerator
+                25: [8, 89, 52], # television
+                26: [129, 83, 91], # paper
+                27: [110, 187, 198], # towel
+                28: [171, 252, 7], # shower curtain
+                29: [174, 34, 205], # box
+                30: [80, 163, 49], # whiteboard
+                31: [103, 131, 1], # person
+                32: [253, 133, 53], # night stand
+                33: [105, 3, 53], # toilet
+                34: [220, 190, 145], # sink
+                35: [217, 43, 161], # lamp
+                36: [201, 189, 227], # bathtub
+                37: [13, 94, 47], # bag
+                38: [14, 199, 205], # otherstructure
+                39: [214, 251, 248], # otherfurniture
+                40: [189, 39, 212], # otherprop
+                }
+
+rgb_mean = np.array([0.485, 0.456, 0.406])
+rgb_std = np.array([0.229, 0.224, 0.225])
+
+def paint_labels_and_image(img, label, sample_number):
+    show_dir = '/home/ego_exo4d/Documents/dl_tools_loren/semantic_segmentation/show_dir'
+    label = label.squeeze(0).numpy()
+    label = np.uint8(label)
+    label_bgr = np.zeros((label.shape[0], label.shape[1], 3), np.uint8)
+    for i in range(1, 41):
+        mask = label == i
+        label_bgr[:, :, 0][mask] = nyu40_colors[i][0]
+        label_bgr[:, :, 1][mask] = nyu40_colors[i][1]
+        label_bgr[:, :, 2][mask] = nyu40_colors[i][2]
+    cv2.imwrite(os.path.join(show_dir, f'label_{sample_number}.png'), label_bgr)
+
+    img = img.permute(1, 2, 0).numpy()
+    img = img * rgb_std + rgb_mean
+    img = np.uint8(img * 255)
+    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(os.path.join(show_dir, f'image_{sample_number}.png'), img_bgr)
+    
 
 def imap2rgb(imap, channel_order, theme):
     """converts an iMap label image into a RGB Color label image,
@@ -35,6 +102,13 @@ def imap2rgb(imap, channel_order, theme):
         rgb = np.moveaxis(rgb, -1, 0)  # convert hwc to chw
     return rgb
 
+def denormalize_image(image):
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    mean_torch = torch.tensor(mean).view(-1, 1, 1)
+    std_torch = torch.tensor(std).view(-1, 1, 1)
+    image = image * std_torch + mean_torch
+    return image
 
 # TODO: Fix this
 def toOneHot(tensor, dataset_name):
