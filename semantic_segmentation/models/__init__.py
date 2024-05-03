@@ -51,6 +51,7 @@ def get_loss_fn(cfg) -> torch.nn.Module:
 
 from semantic_segmentation.models.deterministic_network import DeterministicNetwork, DeterministicNetworkWrapper
 from semantic_segmentation.models.aleatoric_network import AleatoricNetwork, AleatoricNetworkWrapper
+from semantic_segmentation.models.MCD_network import MCDNetwork, MCDNetworkWrapper
 from semantic_segmentation.models.erfnet.erfnet import ERFNetModel
 from semantic_segmentation.models.erfnet.aleatoric_erfnet import AleatoricERFNetModel
 from semantic_segmentation.models.unet.unet import UNetModel
@@ -71,13 +72,13 @@ LossType = Union["CrossEntropyLoss", "NLLLoss", "AleatoricLoss"]
 network_wrapper = {
     "deterministic": DeterministicNetworkWrapper,
     "aleatoric": AleatoricNetworkWrapper,
-    #"mcd": MCDNetworkWrapper,
+    "mcd": MCDNetworkWrapper,
 }
 
 networks = {
     "deterministic": DeterministicNetwork,
     "aleatoric": AleatoricNetwork,
-    #"mcd": MCDNetwork,
+    "mcd": MCDNetwork,
 }
 
 deterministic_models = {
@@ -89,12 +90,17 @@ deterministic_models = {
 aleatoric_models = {
     "erfnet": AleatoricERFNetModel,
     "unet": AleatoricUNetModel,
-    "deeplabv3": deeplabv3_resnet50,
+    "deeplabv3": deeplabv3_resnet50_MCD,
+}
+
+MCD_models = {
+    "deeplabv3": deeplabv3_resnet50_MCD,
 }
 
 models_dict = {
     "deterministic": deterministic_models,
     "aleatoric": aleatoric_models,
+    "mcd": MCD_models,
 }
 
 losses = {

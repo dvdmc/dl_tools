@@ -21,24 +21,24 @@ def main(checkpoint: str, exp: str):
         checkpoint (str): path to checkpoint file (.ckpt)
     """
     #cfg = torch.load(checkpoint)["hyper_parameters"]["cfg"]
-    config = '/home/ego_exo4d/Documents/dl_tools_loren/config/voc12.yaml'
+    config = '/home/ego_exo4d/Documents/dl_tools_loren/config/voc12_MCD_inference.yaml'
     with open(config, "r") as config_file:
         cfg = yaml.safe_load(config_file)
+    
+    #model_weights = torch.load(checkpoint)['model_state']
+    #new_model_weights = {}
+    #for key in model_weights.keys():
+    #    if key.startswith('backbone.'):
+    #        new_key = key.replace('backbone.', 'model.backbone.')
+    #    elif key.startswith('classifier.classifier.'):
+    #        new_key = key.replace('classifier.classifier.', 'model.classifier.classifier.')
+    #    new_model_weights[new_key] = model_weights[key]
 
-    model_weights = torch.load(checkpoint)['model_state']
-    new_model_weights = {}
-    for key in model_weights.keys():
-        if key.startswith('backbone.'):
-            new_key = key.replace('backbone.', 'model.backbone.')
-        elif key.startswith('classifier.classifier.'):
-            new_key = key.replace('classifier.classifier.', 'model.classifier.classifier.')
-        new_model_weights[new_key] = model_weights[key]
-        print(new_key, model_weights[key].shape)
     
     # Load data and model
     data = get_data_module(cfg)
     model = get_model(cfg)
-    model.load_state_dict(new_model_weights)
+    #model.load_state_dict(new_model_weights)
 
     #tb_logger = pl_loggers.TensorBoardLogger("experiments/" + cfg["experiment"]["id"], default_hp_metric=False)
     output_dir = '/home/ego_exo4d/Documents/dl_tools_loren/wandb_logs'
@@ -54,7 +54,7 @@ def main(checkpoint: str, exp: str):
     trainer = Trainer(logger=wb_logger, devices=cfg["train"]["n_gpus"])
 
     # Test!
-    trainer.test(model, data)
+    trainer.test(model, data, ckpt_path=checkpoint)
 
 
 if __name__ == "__main__":

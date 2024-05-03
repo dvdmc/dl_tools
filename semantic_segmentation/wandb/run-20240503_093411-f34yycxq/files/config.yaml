@@ -1,0 +1,229 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    python_version: 3.11.8
+    cli_version: 0.16.6
+    framework: lightning
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1714721651.0
+    t:
+      1:
+      - 1
+      - 9
+      - 41
+      - 51
+      - 55
+      - 103
+      2:
+      - 1
+      - 9
+      - 41
+      - 51
+      - 55
+      - 103
+      3:
+      - 7
+      - 13
+      - 23
+      4: 3.11.8
+      5: 0.16.6
+      8:
+      - 5
+      13: linux-x86_64
+    m:
+    - 1: trainer/global_step
+      6:
+      - 3
+    - 1: Epistemic_uncertainty/TP_val._type
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/TP_val.sha256
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/TP_val.size
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/TP_val.path
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/TP_val.format
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/TP_val.width
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/TP_val.height
+      5: 1
+      6:
+      - 1
+    - 1: epoch
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FP_val._type
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FP_val.sha256
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FP_val.size
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FP_val.path
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FP_val.format
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FP_val.width
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FP_val.height
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FN_val._type
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FN_val.sha256
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FN_val.size
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FN_val.path
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FN_val.format
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FN_val.width
+      5: 1
+      6:
+      - 1
+    - 1: Epistemic_uncertainty/FN_val.height
+      5: 1
+      6:
+      - 1
+    - 1: UncertaintyStats/Calibration._type
+      5: 1
+      6:
+      - 1
+    - 1: UncertaintyStats/Calibration.sha256
+      5: 1
+      6:
+      - 1
+    - 1: UncertaintyStats/Calibration.size
+      5: 1
+      6:
+      - 1
+    - 1: UncertaintyStats/Calibration.path
+      5: 1
+      6:
+      - 1
+    - 1: UncertaintyStats/Calibration.format
+      5: 1
+      6:
+      - 1
+    - 1: UncertaintyStats/Calibration.width
+      5: 1
+      6:
+      - 1
+    - 1: UncertaintyStats/Calibration.height
+      5: 1
+      6:
+      - 1
+    - 1: test:loss
+      5: 1
+      6:
+      - 1
+    - 1: Test/Precision
+      5: 1
+      6:
+      - 1
+    - 1: Test/Recall
+      5: 1
+      6:
+      - 1
+    - 1: Test/F1-Score
+      5: 1
+      6:
+      - 1
+    - 1: Test/Acc
+      5: 1
+      6:
+      - 1
+    - 1: Test/mIoU
+      5: 1
+      6:
+      - 1
+    - 1: Test/ECE
+      5: 1
+      6:
+      - 1
+network:
+  desc: null
+  value: <semantic_segmentation.models.MCD_network.MCDNetwork object at 0x7feb6a5e3fd0>
+cfg:
+  desc: null
+  value:
+    experiment:
+      id: VOC_Drop0dot3_R50
+    data:
+      name: voc12
+      path_to_dataset: /home/ego_exo4d/VOCdevkit/VOC2012
+      depth: 3
+      batch_size: 16
+      train_shuffle: true
+      num_workers: 16
+    train:
+      n_gpus: 1
+      max_epoch: 30
+      lr: 0.0001
+      weight_decay: 0.0005
+      num_mc_aleatoric: 50
+      MC_samples: 4
+      patience: 500
+      visualization_interval: 50
+      transformations:
+        random_scale:
+          min_scale: 0.5
+          max_scale: 2.0
+        random_crop:
+          value: 513
+        random_flip:
+          prob: 0.5
+    val:
+      transformations:
+        resize:
+          value: 513
+        center_crop:
+          value: 513
+    test:
+      transformations:
+        resize: null
+    model:
+      type: mcd
+      name: deeplabv3
+      num_classes: 21
+      loss: xentropy

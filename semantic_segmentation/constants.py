@@ -127,7 +127,6 @@ LABELS = {
         "sofa": {"color": (0, 192, 0), "id": 18},
         "train": {"color": (128, 192, 0), "id": 19},
         "tvmonitor": {"color": (0, 64, 128), "id": 20},
-        "void": {"color": (128, 64, 128), "id": 21},
     }
 }
 

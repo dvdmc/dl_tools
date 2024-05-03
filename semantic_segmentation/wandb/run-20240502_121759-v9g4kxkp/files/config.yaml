@@ -1,0 +1,85 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    python_version: 3.11.8
+    cli_version: 0.16.6
+    framework: lightning
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1714645079.0
+    t:
+      1:
+      - 1
+      - 9
+      - 41
+      - 51
+      - 55
+      - 103
+      2:
+      - 1
+      - 9
+      - 41
+      - 51
+      - 55
+      - 103
+      3:
+      - 7
+      - 13
+      - 23
+      4: 3.11.8
+      5: 0.16.6
+      8:
+      - 5
+      13: linux-x86_64
+    m:
+    - 1: trainer/global_step
+      6:
+      - 3
+network:
+  desc: null
+  value: <semantic_segmentation.models.MCD_network.MCDNetwork object at 0x7f2091dbbf50>
+cfg:
+  desc: null
+  value:
+    experiment:
+      id: VOC_Drop0dot3_R50
+    data:
+      name: voc12
+      path_to_dataset: /home/ego_exo4d/VOCdevkit/VOC2012
+      depth: 3
+      batch_size: 16
+      train_shuffle: true
+      num_workers: 16
+    train:
+      n_gpus: 1
+      max_epoch: 30
+      lr: 0.0001
+      weight_decay: 0.0005
+      num_mc_aleatoric: 50
+      MC_samples: 4
+      patience: 500
+      visualization_interval: 50
+      transformations:
+        random_scale:
+          min_scale: 0.5
+          max_scale: 2.0
+        random_crop:
+          value: 513
+        random_flip:
+          prob: 0.5
+    val:
+      transformations:
+        resize:
+          value: 513
+        center_crop:
+          value: 513
+    test:
+      transformations:
+        resize: null
+    model:
+      type: mcd
+      name: deeplabv3
+      num_classes: 21
+      loss: xentropy

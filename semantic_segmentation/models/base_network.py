@@ -22,15 +22,20 @@ from pytorch_lightning import LightningModule
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 import semantic_segmentation.utils.utils as utils
 from semantic_segmentation.constants import IGNORE_INDEX
+from semantic_segmentation.constants import LABELS
 from semantic_segmentation.models import get_loss_fn
 from semantic_segmentation.models.loss import CrossEntropyLoss
 from semantic_segmentation.utils import metrics
 import wandb
+import numpy as np
+from PIL import Image
 
 if TYPE_CHECKING:
     from semantic_segmentation.models import NetworkType
 
 from torch.optim.lr_scheduler import _LRScheduler, StepLR
+
+
 
 class PolyLR(_LRScheduler):
     def __init__(self, optimizer, max_iters, power=0.9, last_epoch=-1, min_lr=1e-6):
@@ -57,6 +62,8 @@ class BaseNetwork:
 
         # Configure model
         self.model = model
+        
+        
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -105,6 +112,12 @@ class NetworkWrapper(LightningModule):
         # fn respectively in subclasses
         self.val_step_outputs = []
         self.test_step_outputs = []
+        
+        #Visualize the calibration plots
+        self.LABELS_COLORS = LABELS[self.cfg["data"]["name"]]
+        for c in self.LABELS_COLORS:
+            color = self.LABELS_COLORS[c]['color']
+            self.LABELS_COLORS[c]['color'] = tuple([c / 255.0 for c in color])
 
     def load_pretrained_weights(self, checkpoint_url):
         """
@@ -189,6 +202,15 @@ class NetworkWrapper(LightningModule):
         #self.logger.experiment.add_figure("UncertaintyStats/Calibration", fig_, self.current_epoch)
 
         self.vis_step = 0
+    
+    def max_in_tensor_list(self, tensor_list):
+        if tensor_list:  # Asegurarse de que la lista no esté vacía
+            # Concatenar todos los tensores en la lista a lo largo de una nueva dimensión
+            combined_tensor = torch.cat([t.flatten() for t in tensor_list])
+            # Calcular el máximo
+            return combined_tensor.max().item()
+        else:
+            return float('nan')  # Retorna NaN si la lista está vacía
 
     def on_test_epoch_end(self):
         """
@@ -200,14 +222,10 @@ class NetworkWrapper(LightningModule):
               in their outputs.
         """
         outputs = self.test_step_outputs
+        
+    
         for tmp in outputs:
-            print(tmp.keys(), 'keys in the outputs')
-            print(tmp['conf_matrix'].shape, 'conf_matrix in the outputs', tmp['loss'])
-            print(tmp['calibration_info'].keys(), 'calibration_info in the outputs')
             cal = tmp['calibration_info']
-            print(cal['conf_bin'], 'conf_bin in the calibration_info')
-            print(cal['acc_bin'], 'acc_bin in the calibration_info')
-            print(cal['prop_bin'], 'n_bin in the calibration_info')
         conf_matrices = [tmp["conf_matrix"] for tmp in outputs]
         calibration_info_list = [tmp["calibration_info"] for tmp in outputs]
 
@@ -216,8 +234,43 @@ class NetworkWrapper(LightningModule):
             stage="Test",
             calibration_info_list=calibration_info_list,
         )
-        #self.log_confusion_matrix(conf_matrices, stage="Test")
-        #self.log_calibration_plots(calibration_info_list)
+        self.show_uncertainty_diagram(self.plot_epist_TP, 'TP_val')
+        self.show_uncertainty_diagram(self.plot_epist_FP, 'FP_val')
+        #self.show_uncertainty_diagram(self.plot_epist_TN, 'TN_val')
+        self.show_uncertainty_diagram(self.plot_epist_FN, 'FN_val')
+        self.log_calibration_plots(calibration_info_list)
+    
+    def show_uncertainty_diagram(self, uncertainty, name):
+        
+        # Configurar el tamaño de la figura
+        plt.figure(figsize=(10, 6))
+
+        # Número de bins para el histograma
+        bins = 30
+
+        x = np.linspace(0, 0.25, 100)
+        for class_name, values in uncertainty.items():
+            sorted_values = np.sort(values)
+            cumulative_frequency = np.searchsorted(sorted_values, x, side='right') / len(values)
+            cumulative_frequency *= 100
+            plt.plot(x, cumulative_frequency, label=class_name, color=self.LABELS_COLORS[class_name]['color'])
+
+        plt.title(name + ' histogram')
+        plt.xlabel('Epistemic uncertainty')
+        plt.ylabel('Percentage of pixels')
+        plt.legend()  # Añadir leyenda para identificar cada clase
+        
+        import io
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        image = Image.open(buf)
+        plt.close()
+        
+        self.logger.experiment.log({
+            f"Epistemic_uncertainty/{name}": wandb.Image(image),
+            "epoch": self.current_epoch
+        })
 
     def log_classification_metrics(  # not refactored
         self,
@@ -299,9 +352,11 @@ class NetworkWrapper(LightningModule):
             calibration_info_list (list): List of calibration info. TODO: Improve definition
         """
         fig_ = metrics.compute_calibration_plots(calibration_info_list, num_bins=50)
-        fig_wandb = wandb.Table(data = fig_)
+        #if not isinstance(fig_, list):
+        #    fig_ = [fig_]
+        fig_wandb = wandb.Image(fig_)
         self.logger.experiment.log({f"UncertaintyStats/Calibration": fig_wandb})
-        #self.logger.experiment.add_figure("UncertaintyStats/Calibration", fig_, self.current_epoch)
+        #self.logger.experiment.log("UncertaintyStats/Calibration", fig_wandb, self.current_epoch)
 
     def log_gradient_norms(self):  # not refactored
         """

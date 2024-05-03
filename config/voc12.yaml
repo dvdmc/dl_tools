@@ -10,7 +10,7 @@ data:
     #    height: 400
     #    keep_aspect_ratio: true
     depth: 3
-    batch_size: 4
+    batch_size: 16
     train_shuffle: true
     num_workers: 16
 
@@ -25,16 +25,23 @@ train:
     visualization_interval: 50
 
     transformations:
+        random_scale:
+            min_scale: 0.5
+            max_scale: 2.0
+        random_crop:
+            value: 513
         random_flip:
             prob: 0.5
-        random_crop:
-            coeff: 0.8
+
+        #random_flip:
+        #    prob: 0.5
+        #random_crop:
+        #    coeff: 0.8
             #height: 776 #El tamaño es 968 y hacemos un resize a un 0.8
             #width: 1037 #El tamaño es 1296 y hacemos el resize a un 80% de su valor
-        resize:
-            height: 336
-            width: 448
-        
+        #resize:
+        #    height: 336
+        #    width: 448
         
         #random_rotation:
         #  min_angle: -180
@@ -55,14 +62,13 @@ train:
 
 val:
     transformations:
-        random_crop:
-            coeff: 0.95
         resize:
-            height: 336
-            width: 448
-
+            value: 513
+        center_crop:
+            value: 513
 test:
     transformations:
+        resize:
         # resize:
         #   height:
         #   width: 344
