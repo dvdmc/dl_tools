@@ -1,5 +1,5 @@
 """
-    Pytorch Lightning Bayesian training wrapper from Jan Weyler.
+    Pytorch Lightning Evidential wrapper from Julius Rückin.
     The implementation is based on:
     https://github.com/dmar-bonn/bayesian_erfnet/
 """
@@ -17,13 +17,13 @@ from utils import metrics
 from semantic_segmentation.models.base_network import BaseNetwork, NetworkWrapper
 
 
-class AleatoricNetwork(BaseNetwork):
+class EvidentialNetwork(BaseNetwork):
     """
-    Defines the interface for a aleatoric network.
+    Defines the interface for a evidential network.
     """
 
     def __init__(self, model: nn.Module, cfg: dict) -> None:
-        super(AleatoricNetwork, self).__init__(model, cfg)
+        super(EvidentialNetwork, self).__init__(model, cfg)
         # TODO: This should come from the outside
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -43,27 +43,6 @@ class AleatoricNetwork(BaseNetwork):
         est_seg, est_std = self.model(x)
         return est_seg, est_std
 
-    def sample_from_aleatoric_model(self, seg: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
-        """
-        Sample from the aleatoric model
-        Args:
-            seg (torch.Tensor): segmentation logits
-            std (torch.Tensor): standard deviation of the model output
-        Returns:
-            torch.Tensor: sampled probabilities
-        """
-        sampled_probs = torch.zeros((self.num_mc_aleatoric, *seg.size()), device=self.device)
-        noise_mean = torch.zeros(seg.size(), device=self.device)
-        noise_std = torch.ones(seg.size(), device=self.device)
-        dist = torch.distributions.normal.Normal(noise_mean, noise_std)
-        # TODO: can this be done in parallel?
-        for i in range(self.num_mc_aleatoric):
-            epsilon = dist.sample()
-            sampled_logits = seg + torch.mul(std, epsilon)
-            sampled_probs[i] = self.softmax(sampled_logits)
-        mean_probs = torch.mean(sampled_probs, dim=0)
-        return mean_probs
-
     @torch.no_grad()
     def get_predictions(self, data):
         """
@@ -81,30 +60,32 @@ class AleatoricNetwork(BaseNetwork):
             torch.Tensor: uncertainty as categorical entropy
         """
         self.model.eval()
-        est_seg_log, est_std_log = self.forward(data)
+        evidence, hidden_representation = self.model.forward(data)
 
-        est_std = self.softplus(est_std_log) + 10e-8
-        mean_probs = self.sample_from_aleatoric_model(est_seg_log, est_std)
+        ones = torch.ones_like(evidence, device=self.device)
+        S = torch.sum(evidence + 1, dim=1, keepdim=True)
+        prob = (evidence + 1) / S
+        epistemic_unc = (torch.sum(ones, dim=1, keepdim=True) / S).squeeze(1)
+        aleatoric_unc = torch.zeros_like(epistemic_unc, device=self.device)
 
-        _, pred_label = torch.max(mean_probs, dim=1)
-
-        aleatoric_unc = -torch.sum(mean_probs * torch.log(mean_probs + 10e-8), dim=1) / torch.log(
-            torch.tensor(self.num_classes)
+        return (
+            prob.cpu().numpy(),
+            epistemic_unc.cpu().numpy(),
+            aleatoric_unc.cpu().numpy(),
+            hidden_representation.cpu().numpy(),
         )
 
-        return mean_probs, pred_label, aleatoric_unc
 
-
-class AleatoricNetworkWrapper(NetworkWrapper):
+class EvidentialNetworkWrapper(NetworkWrapper):
     """
-    Network Wrapper to include aleatoric uncertainty as an additional output.
+    Network Wrapper to include Evidential uncertainty as an additional output.
     - We use get_predictions to get the probabilities. This is not required in traning.
     - The uncertainty in this case is the ... (entropy...?) and viualized.
-    TODO: clarify extracted from aleatoric NN.
+    TODO: clarify extracted from Evidential NN.
     """
 
-    def __init__(self, network: AleatoricNetwork, cfg: dict) -> None:
-        super(AleatoricNetworkWrapper, self).__init__(network, cfg)
+    def __init__(self, network: EvidentialNetwork, cfg: dict) -> None:
+        super(EvidentialNetworkWrapper, self).__init__(network, cfg)
         self.network = network  # For typing purposes
         self.save_hyperparameters()
         self.vis_interval = self.cfg["train"]["visualization_interval"]
@@ -200,7 +181,7 @@ class AleatoricNetworkWrapper(NetworkWrapper):
             true_label,
             pred_label,
             probs,
-            uncertainties=[unc],
+            uncertainty=unc,
             stage="Validation",
             step=self.vis_step,
         )

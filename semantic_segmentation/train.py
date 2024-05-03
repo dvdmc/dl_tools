@@ -56,6 +56,7 @@ def main(
         filename=cfg["experiment"]["id"] + "_{epoch:02d}_{iou:.2f}",
         mode="max",
         save_last=True,
+        save_weights_only=True, # This is required to looad models without having the same imports
     )
 
     log_dir = os.path.join('/home/ego_exo4d/Documents/dl_tools_loren/experiments', cfg["experiment"]["id"])

@@ -70,9 +70,10 @@ class ScanNetDataset(Dataset):
     def __init__(self, data_rootdir, mode, transformations):
         super().__init__()
 
-        assert os.path.exists(data_rootdir)
+        assert os.path.exists(data_rootdir), "Error: data_rootdir is not found"
         split_file = os.path.join(data_rootdir, 'splits', f"{mode}.txt")
-        assert os.path.exists(split_file)
+        assert os.path.exists(split_file), f"Error: {split_file} is not found"
+
         with open(split_file, "r") as f:
             scene_id_list = [x.strip() for x in f.readlines()]
 
@@ -137,7 +138,7 @@ class ScanNetDataset(Dataset):
         
         path_to_current_label = self.label_files[idx]
         label = self.get_label(path_to_current_label) #(1, H, W) Tensor
-        
+
         # apply a set of transformations to the raw_image, image and label
         for transformer in self.transformations:
             img, label, img_pil = transformer(img, label, img_pil)

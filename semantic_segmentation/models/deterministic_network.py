@@ -159,7 +159,7 @@ class DeterministicNetworkWrapper(NetworkWrapper):
             true_label,
             pred_label,
             probs,
-            uncertainty=unc,
+            uncertainties=[unc],
             stage="Validation",
             step=self.vis_step,
         )

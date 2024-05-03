@@ -17,13 +17,13 @@ from utils import metrics
 from semantic_segmentation.models.base_network import BaseNetwork, NetworkWrapper
 
 
-class AleatoricNetwork(BaseNetwork):
+class MCDNetwork(BaseNetwork):
     """
-    Defines the interface for a aleatoric network.
+    Defines the interface for a mcd network.
     """
 
     def __init__(self, model: nn.Module, cfg: dict) -> None:
-        super(AleatoricNetwork, self).__init__(model, cfg)
+        super(MCDNetwork, self).__init__(model, cfg)
         # TODO: This should come from the outside
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -31,38 +31,17 @@ class AleatoricNetwork(BaseNetwork):
         self.softmax = nn.Softmax(dim=1)
         # Used to obtain the standard deviation from the log std
         self.softplus = nn.Softplus(beta=1)
-        self.num_mc_aleatoric = self.cfg["train"]["num_mc_aleatoric"]
+        self.num_mc_epistemic = self.cfg["train"]["num_mc_epistemic"]
 
     def forward(self, x):
         """
-        Forward pass with aleatoric uncertainty
+        Forward pass with epistemic uncertainty
         as an additional output. This only returns the logits.
-        Post processing (e.g., softplus, aleatoric dist. sampling)
+        Post processing (e.g., softplus, epistemic dist. sampling)
         is done in get_predictions()
         """
-        est_seg, est_std = self.model(x)
-        return est_seg, est_std
-
-    def sample_from_aleatoric_model(self, seg: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
-        """
-        Sample from the aleatoric model
-        Args:
-            seg (torch.Tensor): segmentation logits
-            std (torch.Tensor): standard deviation of the model output
-        Returns:
-            torch.Tensor: sampled probabilities
-        """
-        sampled_probs = torch.zeros((self.num_mc_aleatoric, *seg.size()), device=self.device)
-        noise_mean = torch.zeros(seg.size(), device=self.device)
-        noise_std = torch.ones(seg.size(), device=self.device)
-        dist = torch.distributions.normal.Normal(noise_mean, noise_std)
-        # TODO: can this be done in parallel?
-        for i in range(self.num_mc_aleatoric):
-            epsilon = dist.sample()
-            sampled_logits = seg + torch.mul(std, epsilon)
-            sampled_probs[i] = self.softmax(sampled_logits)
-        mean_probs = torch.mean(sampled_probs, dim=0)
-        return mean_probs
+        est_seg = self.model(x)
+        return est_seg
 
     @torch.no_grad()
     def get_predictions(self, data):
@@ -81,30 +60,44 @@ class AleatoricNetwork(BaseNetwork):
             torch.Tensor: uncertainty as categorical entropy
         """
         self.model.eval()
-        est_seg_log, est_std_log = self.forward(data)
+        # We set the dropout layers active during inference!
+        # This should ideally be done only once in an deployed model
+        for m in self.model.modules():
+            if m.__class__.__name__.startswith('Dropout'):
+                m.train()
 
-        est_std = self.softplus(est_std_log) + 10e-8
-        mean_probs = self.sample_from_aleatoric_model(est_seg_log, est_std)
+        # We sample multiple times to get the epistemic uncertainty
+        est_segs = []
+        for _ in range(self.num_mc_epistemic):
+            logits = self.model(data)
+            out = self.softmax(logits)
+            est_segs.append(out)
+        est_segs = torch.stack(est_segs, dim=0)
+        mean_probs = torch.mean(est_segs, dim=0)
+        pred_label = torch.argmax(mean_probs, dim=1)
+        aleatoric_unc, epistemic_unc = self.compute_uncertainties(est_segs)
 
-        _, pred_label = torch.max(mean_probs, dim=1)
+        return mean_probs, pred_label, aleatoric_unc, epistemic_unc
 
-        aleatoric_unc = -torch.sum(mean_probs * torch.log(mean_probs + 10e-8), dim=1) / torch.log(
-            torch.tensor(self.num_classes)
-        )
-
-        return mean_probs, pred_label, aleatoric_unc
-
-
-class AleatoricNetworkWrapper(NetworkWrapper):
+    def compute_uncertainties(self, est_segs):
+        """
+        Compute the uncertainties from the multiple samples
+        TODO (Lorenzo): Correct
+        """
+        mean_probs = torch.mean(est_segs, dim=0)
+        aleatoric_unc = torch.mean(mean_probs * (1 - mean_probs), dim=0)
+        epistemic_unc = torch.mean(torch.var(est_segs, dim=0), dim=1)
+        return aleatoric_unc, epistemic_unc
+    
+class MCDNetworkWrapper(NetworkWrapper):
     """
-    Network Wrapper to include aleatoric uncertainty as an additional output.
+    Network Wrapper to include aleatoric and epistemic uncertainty
     - We use get_predictions to get the probabilities. This is not required in traning.
-    - The uncertainty in this case is the ... (entropy...?) and viualized.
-    TODO: clarify extracted from aleatoric NN.
+    - The uncertainties are computed according to: TODO (Lorenzo)
     """
 
-    def __init__(self, network: AleatoricNetwork, cfg: dict) -> None:
-        super(AleatoricNetworkWrapper, self).__init__(network, cfg)
+    def __init__(self, network: MCDNetwork, cfg: dict) -> None:
+        super(MCDNetworkWrapper, self).__init__(network, cfg)
         self.network = network  # For typing purposes
         self.save_hyperparameters()
         self.vis_interval = self.cfg["train"]["visualization_interval"]
@@ -116,13 +109,9 @@ class AleatoricNetworkWrapper(NetworkWrapper):
         log metrics.
         """
         true_label = batch["label"]
-        est_seg, est_std = self.network.forward(batch["data"])
-        # TODO: This is inconsistent with get_predictions step
-        # in get_predictions, softplus is used on std before sampling
-        mean_probs = self.network.sample_from_aleatoric_model(est_seg, est_std)
-        loss = self.loss_fn(mean_probs, true_label)
+        est_seg = self.network.forward(batch["data"])
+        loss = self.loss_fn(est_seg, true_label)
 
-        self.log_uncertainty_stats(est_std)
         self.log_gradient_norms()
         self.log("train:loss", loss)
         return loss
@@ -134,7 +123,7 @@ class AleatoricNetworkWrapper(NetworkWrapper):
         validation metrics.
         """
         true_label = batch["label"]
-        mean_probs, pred_label, _ = self.network.get_predictions(batch["data"])
+        mean_probs, pred_label, _, _ = self.network.get_predictions(batch["data"])
         loss = self.loss_fn(mean_probs, true_label)
 
         confusion_matrix = torchmetrics.functional.confusion_matrix(
@@ -186,32 +175,22 @@ class AleatoricNetworkWrapper(NetworkWrapper):
         """
         self.vis_step += 1
         true_label = batch["label"]
-        final_prob, pred_label, aleatoric_unc = self.network.get_predictions(batch["data"])
+        final_prob, pred_label, aleatoric_unc, epistemic_unc = self.network.get_predictions(batch["data"])
 
         # Get a copy of the data in cpu
         img = batch["data"][0].cpu()
-        pred_label = pred_label[0].cpu()
         probs = final_prob[0].cpu()
+        pred_label = pred_label[0].cpu()
         true_label = true_label[0].cpu()
-        unc = aleatoric_unc[0].cpu()
+        aleatoric_unc = aleatoric_unc[0].cpu()
 
         self.log_prediction_images(
             img,
             true_label,
             pred_label,
             probs,
-            uncertainties=[unc],
+            uncertainties=[aleatoric_unc, epistemic_unc],
             stage="Validation",
             step=self.vis_step,
         )
 
-    def log_uncertainty_stats(self, std: torch.Tensor):
-        """
-        Tracks some interesting statistics about the uncertainty
-
-        Args:
-            std (torch.Tensor): Standard deviation of the model output
-        """
-        self.log("Variance/TrainMin", torch.min(std))
-        self.log("Variance/TrainMax", torch.max(std))
-        self.log("Variance/TrainMean", torch.mean(std))

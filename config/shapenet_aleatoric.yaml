@@ -5,11 +5,6 @@ experiment:
 data:
     name: 'shapenet'
     path_to_dataset: '/media/david/dataset/shapenet/shapenet_test'
-    img_prop:
-        width: 400
-        height: 400
-        keep_aspect_ratio: true
-    depth: 3
     batch_size: 8
     train_shuffle: true
     num_workers: 0
@@ -22,7 +17,6 @@ train:
     lr: 0.0001
     weight_decay: 0.001
     num_mc_aleatoric: 50
-    patience: 500
     visualization_interval: 50
 
     transformations:
