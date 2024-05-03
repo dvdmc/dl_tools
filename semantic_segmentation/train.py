@@ -40,6 +40,7 @@ def main(
         filename=cfg["experiment"]["id"] + "_{epoch:02d}_{iou:.2f}",
         mode="max",
         save_last=True,
+        save_weights_only=True, # This is required to looad models without having the same imports
     )
 
     tb_logger = pl_loggers.TensorBoardLogger(f"experiments/{cfg['experiment']['id']}", default_hp_metric=False)
