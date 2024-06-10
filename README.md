@@ -16,7 +16,7 @@ The diagram gives an overall idea about where are the different pieces conceptua
 - The `network` includes the `forward` and `get_prediction` methods. Ideally, a `network` object is what you would like to use during `deployment`.
 - The `Lightning wrapper` is added for `training` but it is not intended to be used during `deployment`. It adds the functionality for the training lifecycle (train / val / test steps...). It is defined in the same file as the `network`.
 - The `dataset` is in charge of loading the training data and also makes use of a Lightning wrapper.
-- Some parts not covered by this repo are the deployment code which will be your final application, project or paper code and the corresponding "bridge" for its data source. In some cases, a data loader from the `dataset` module can be used as inspiration to process images or get ground truth data. Check [sensors_tools](https://github.com/dvdmc/sensors_tools/).
+- Some parts not covered by this repo are the deployment code which will be your final application, project or paper code and the corresponding "bridge" for its data source. In some cases, a data loader from the `dataset` module can be used as inspiration to process images or get ground truth data. Check [sensors_tools](https://github.com/dvdmc/sensors_tools/) for an implementation of the deployment module.
 
 ## Installation
 
